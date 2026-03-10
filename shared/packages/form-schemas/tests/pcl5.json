@@ -1,0 +1,630 @@
+{
+  "code": "PCL5",
+  "title": "PCL-5 Travma Sonrası Stres Bozukluğu Ölçeği",
+  "description": "DSM-5 travma sonrası stres bozukluğu belirtilerini değerlendiren 20 maddelik ölçek. Weathers ve ark. (2013).",
+  "formType": "PSYCHOMETRIC",
+  "category": "psychometric",
+  "estimatedMinutes": 5,
+  "schema": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "pcl5_main",
+        "title": "TSSB Belirtileri",
+        "icon": "alert-triangle",
+        "fields": [
+          {
+            "id": "q1",
+            "type": "single_select",
+            "label": "Travmatik olaya ilişkin rahatsız edici tekrarlayan, istenmeyen anılar",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q2",
+            "type": "single_select",
+            "label": "Travmatik olayla ilgili üzücü rüyalar",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q3",
+            "type": "single_select",
+            "label": "Travmatik olayın tekrar oluyormuş gibi hissetme ya da davranma (sanki yeniden yaşıyormuş gibi)",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q4",
+            "type": "single_select",
+            "label": "Travmatik olayı hatırlatan bir şey olduğunda yoğun psikolojik sıkıntı",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q5",
+            "type": "single_select",
+            "label": "Travmatik olayı hatırlatan şeyler olduğunda güçlü fiziksel tepkiler (terleme, kalp çarpıntısı vb.)",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q6",
+            "type": "single_select",
+            "label": "Travmatik olaya ilişkin düşüncelerden, duygulardan veya hatıralardan kaçınma",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q7",
+            "type": "single_select",
+            "label": "Travmatik olayı hatırlatan dışsal ipuçlarından kaçınma",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q8",
+            "type": "single_select",
+            "label": "Travmatik olayın önemli bir kısmını hatırlamada güçlük",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q9",
+            "type": "single_select",
+            "label": "Kendiniz, diğerleri veya dünya hakkında aşırı olumsuz inançlar",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q10",
+            "type": "single_select",
+            "label": "Travmatik olaya ilişkin devamlı yanlış suçlama (kendini veya başkalarını)",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q11",
+            "type": "single_select",
+            "label": "Sürekli negatif duygusal durum (korku, öfke, suçluluk, utanç)",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q12",
+            "type": "single_select",
+            "label": "Önceden yapılan etkinliklere ilgi veya katılımda belirgin azalma",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q13",
+            "type": "single_select",
+            "label": "Diğer insanlardan kopuk veya yabancı hissetme",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q14",
+            "type": "single_select",
+            "label": "Pozitif duyguları (mutluluk, sevgi) hissetmede güçlük",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q15",
+            "type": "single_select",
+            "label": "Sinirlilik veya saldırgan davranış",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q16",
+            "type": "single_select",
+            "label": "Umursamaz veya kendine zarar verici davranış",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q17",
+            "type": "single_select",
+            "label": "Aşırı tetikte olma",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q18",
+            "type": "single_select",
+            "label": "Aşırı irkilme tepkisi",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q19",
+            "type": "single_select",
+            "label": "Dikkat toplamada güçlük",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          },
+          {
+            "id": "q20",
+            "type": "single_select",
+            "label": "Uykuya dalmada veya uykuda kalmada güçlük",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç"
+              },
+              {
+                "value": "1",
+                "label": "Biraz"
+              },
+              {
+                "value": "2",
+                "label": "Orta derecede"
+              },
+              {
+                "value": "3",
+                "label": "Oldukça fazla"
+              },
+              {
+                "value": "4",
+                "label": "Aşırı derecede"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scoringConfig": {
+    "type": "sum",
+    "response_scale": {
+      "0": "Hiç",
+      "1": "Biraz",
+      "2": "Orta derecede",
+      "3": "Oldukça fazla",
+      "4": "Aşırı derecede"
+    },
+    "total_score": {
+      "min": 0,
+      "max": 80,
+      "calculation": "SUM(all_items)"
+    },
+    "severity_levels": [
+      {
+        "range": [
+          0,
+          20
+        ],
+        "level": "minimal",
+        "label": "Minimal belirti"
+      },
+      {
+        "range": [
+          21,
+          30
+        ],
+        "level": "mild",
+        "label": "Hafif belirti"
+      },
+      {
+        "range": [
+          31,
+          50
+        ],
+        "level": "moderate",
+        "label": "Orta belirti (klinik cutoff)"
+      },
+      {
+        "range": [
+          51,
+          80
+        ],
+        "level": "severe",
+        "label": "Ağır belirti"
+      }
+    ],
+    "clinical_cutoff": 31
+  }
+}

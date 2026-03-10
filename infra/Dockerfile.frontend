@@ -1,0 +1,36 @@
+FROM node:20-alpine AS base
+RUN apk add --no-cache openssl libc6-compat
+RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
+WORKDIR /app
+
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/frontend/package.json ./apps/frontend/
+COPY shared/packages/shared/package.json ./shared/packages/shared/
+COPY shared/packages/form-schemas/package.json ./shared/packages/form-schemas/
+COPY shared/packages/scoring-engine/package.json ./shared/packages/scoring-engine/
+COPY apps/api/package.json ./apps/api/
+RUN pnpm install --frozen-lockfile
+
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/shared/packages/shared/node_modules ./shared/packages/shared/node_modules
+COPY --from=deps /app/shared/packages/form-schemas/node_modules ./shared/packages/form-schemas/node_modules
+COPY --from=deps /app/shared/packages/scoring-engine/node_modules ./shared/packages/scoring-engine/node_modules
+COPY --from=deps /app/apps/frontend/node_modules ./apps/frontend/node_modules
+COPY . .
+RUN pnpm build --filter=@psikoport/shared --filter=frontend
+
+FROM base AS runner
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/apps/frontend ./apps/frontend
+COPY --from=builder /app/shared/packages ./shared/packages
+WORKDIR /app/apps/frontend
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+CMD ["pnpm", "start"]

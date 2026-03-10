@@ -1,0 +1,43 @@
+{
+  "code": "PHQ9",
+  "title": "PHQ-9 Depresyon Tarama Ölçeği",
+  "description": "Son 2 haftadaki depresyon belirtilerini değerlendiren 9 maddelik ölçek. Kroenke ve ark. (2001).",
+  "formType": "PSYCHOMETRIC",
+  "category": "psychometric",
+  "estimatedMinutes": 3,
+  "schema": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "phq9_main",
+        "title": "Depresyon Belirtileri",
+        "icon": "mood",
+        "fields": [
+          {"id": "q1", "type": "single_select", "label": "Yaptiginiz islere karsi ilgi duymama veya bunlardan zevk alamama", "required": true, "options": [{"value": "0", "label": "Hic"}, {"value": "1", "label": "Birkac gun"}, {"value": "2", "label": "Gunlerin yarisindan fazla"}, {"value": "3", "label": "Neredeyse her gun"}]},
+          {"id": "q2", "type": "single_select", "label": "Kendinizi uzgun, cokkun veya umutsuz hissetme", "required": true, "options": [{"value": "0", "label": "Hic"}, {"value": "1", "label": "Birkac gun"}, {"value": "2", "label": "Gunlerin yarisindan fazla"}, {"value": "3", "label": "Neredeyse her gun"}]},
+          {"id": "q3", "type": "single_select", "label": "Uykuya dalmada veya uykuda kalmada gucluk cekme veya cok fazla uyuma", "required": true, "options": [{"value": "0", "label": "Hic"}, {"value": "1", "label": "Birkac gun"}, {"value": "2", "label": "Gunlerin yarisindan fazla"}, {"value": "3", "label": "Neredeyse her gun"}]},
+          {"id": "q4", "type": "single_select", "label": "Kendinizi yorgun hissetme veya cok az enerjinizin olmasi", "required": true, "options": [{"value": "0", "label": "Hic"}, {"value": "1", "label": "Birkac gun"}, {"value": "2", "label": "Gunlerin yarisindan fazla"}, {"value": "3", "label": "Neredeyse her gun"}]},
+          {"id": "q5", "type": "single_select", "label": "Istahinizin cok az veya asiri olmasi", "required": true, "options": [{"value": "0", "label": "Hic"}, {"value": "1", "label": "Birkac gun"}, {"value": "2", "label": "Gunlerin yarisindan fazla"}, {"value": "3", "label": "Neredeyse her gun"}]},
+          {"id": "q6", "type": "single_select", "label": "Kendinizi kotu hissetme veya ailenizin hayal kirikligina ugramasina neden oldugunuzu dusunme", "required": true, "options": [{"value": "0", "label": "Hic"}, {"value": "1", "label": "Birkac gun"}, {"value": "2", "label": "Gunlerin yarisindan fazla"}, {"value": "3", "label": "Neredeyse her gun"}]},
+          {"id": "q7", "type": "single_select", "label": "Gazete okuma veya televizyon izleme gibi konulara odaklanmada gucluk cekme", "required": true, "options": [{"value": "0", "label": "Hic"}, {"value": "1", "label": "Birkac gun"}, {"value": "2", "label": "Gunlerin yarisindan fazla"}, {"value": "3", "label": "Neredeyse her gun"}]},
+          {"id": "q8", "type": "single_select", "label": "Yavas hareket etme veya konusma ya da tam tersi yerinde duramama", "required": true, "options": [{"value": "0", "label": "Hic"}, {"value": "1", "label": "Birkac gun"}, {"value": "2", "label": "Gunlerin yarisindan fazla"}, {"value": "3", "label": "Neredeyse her gun"}]},
+          {"id": "q9", "type": "single_select", "label": "Kendinize zarar vermeyi veya kendinizi oldurmayi dusunme", "required": true, "options": [{"value": "0", "label": "Hic"}, {"value": "1", "label": "Birkac gun"}, {"value": "2", "label": "Gunlerin yarisindan fazla"}, {"value": "3", "label": "Neredeyse her gun"}], "crisisTrigger": {"values": ["1", "2", "3"], "action": "crisis_protocol"}}
+        ]
+      }
+    ]
+  },
+  "scoringConfig": {
+    "type": "sum",
+    "response_scale": {"0": "Hic", "1": "Birkac gun", "2": "Gunlerin yarisindan fazla", "3": "Neredeyse her gun"},
+    "total_score": {"min": 0, "max": 27, "calculation": "SUM(all_items)"},
+    "severity_levels": [
+      {"range": [0, 4], "level": "minimal", "label": "Minimal depresyon"},
+      {"range": [5, 9], "level": "mild", "label": "Hafif depresyon"},
+      {"range": [10, 14], "level": "moderate", "label": "Orta depresyon"},
+      {"range": [15, 19], "level": "moderately_severe", "label": "Orta-agir depresyon"},
+      {"range": [20, 27], "level": "severe", "label": "Agir depresyon"}
+    ],
+    "risk_items": [{"item_id": "q9", "threshold": 1, "flag": "suicide_risk", "action": "crisis_protocol"}],
+    "clinical_cutoff": 10
+  }
+}

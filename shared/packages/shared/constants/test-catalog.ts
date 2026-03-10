@@ -1,0 +1,53 @@
+/**
+ * Telifsiz psikometrik test kataloğu
+ * Henüz detay yok — sadece code ve başlık (form şemaları packages/form-schemas altında tanımlanacak)
+ */
+
+export const PRIORITY_1_TESTS = [
+  'phq9',
+  'phq2',
+  'gad7',
+  'dass21',
+  'pcl5',
+  'lec5',
+  'who5',
+  'pss10',
+  'sdq',
+  'k10',
+  'dsm5csm',
+  'ybocs',
+  'ysq',
+  'eat26',
+  'audit',
+  'des',
+  'scared',
+  'ipip_neo',
+  'srs30',
+  'ors',
+  'ders16',
+  'aaq2',
+  'lsas',
+  'pdss',
+  'shai',
+  'ecr_r',
+  'das',
+  'fad',
+  'psqi',
+  'isi',
+  'dast10',
+  'ftnd',
+  'cbi',
+  'whodas20',
+  'ffmq',
+  'scs',
+  'epds',
+  'snap4',
+  'psc17',
+  'phqa',
+  'ces_d',
+  'ham_d',
+  'bprs',
+  'cgi',
+] as const;
+
+export type Priority1TestCode = (typeof PRIORITY_1_TESTS)[number];

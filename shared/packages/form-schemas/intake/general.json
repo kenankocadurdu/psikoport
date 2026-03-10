@@ -1,0 +1,1176 @@
+{
+  "code": "INTAKE",
+  "title": "Genel Danışan Karşılama Formu",
+  "description": "Tüm danışanların ilk başvuruda doldurduğu temel bilgi formu.",
+  "formType": "INTAKE",
+  "category": "intake",
+  "estimatedMinutes": 28.5,
+  "schema": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "section_1",
+        "title": "BÖLÜM 1: KİŞİSEL BİLGİLER",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q1",
+            "type": "text_short",
+            "label": "Ad",
+            "required": true,
+            "placeholder": "Adınızı giriniz"
+          },
+          {
+            "id": "q2",
+            "type": "text_short",
+            "label": "Soyad",
+            "required": true,
+            "placeholder": "Soyadınızı giriniz"
+          },
+          {
+            "id": "q3",
+            "type": "number",
+            "label": "T.C. Kimlik No",
+            "required": true,
+            "placeholder": "Fatura ve kayıt işlemleri için"
+          },
+          {
+            "id": "q4",
+            "type": "date",
+            "label": "Doğum Tarihi",
+            "required": true,
+            "placeholder": "Yaş otomatik hesaplanacak"
+          },
+          {
+            "id": "q5",
+            "type": "single_select",
+            "label": "Cinsiyet",
+            "required": true,
+            "options": [
+              {
+                "value": "kadın",
+                "label": "Kadın"
+              },
+              {
+                "value": "erkek",
+                "label": "Erkek"
+              },
+              {
+                "value": "non_binary",
+                "label": "Non-binary"
+              },
+              {
+                "value": "belirtmek_istemiyorum",
+                "label": "Belirtmek istemiyorum"
+              }
+            ]
+          },
+          {
+            "id": "q6",
+            "type": "single_select",
+            "label": "Medeni Durum",
+            "required": true,
+            "options": [
+              {
+                "value": "bekâr",
+                "label": "Bekâr"
+              },
+              {
+                "value": "evli",
+                "label": "Evli"
+              },
+              {
+                "value": "boşanmış",
+                "label": "Boşanmış"
+              },
+              {
+                "value": "dul",
+                "label": "Dul"
+              },
+              {
+                "value": "birlikte_yaşıyor",
+                "label": "Birlikte yaşıyor"
+              },
+              {
+                "value": "ayrılık_sürecinde",
+                "label": "Ayrılık sürecinde"
+              }
+            ]
+          },
+          {
+            "id": "q7",
+            "type": "single_select",
+            "label": "Eğitim Düzeyi",
+            "required": true,
+            "options": [
+              {
+                "value": "i_lkokul",
+                "label": "İlkokul"
+              },
+              {
+                "value": "ortaokul",
+                "label": "Ortaokul"
+              },
+              {
+                "value": "lise",
+                "label": "Lise"
+              },
+              {
+                "value": "ön_lisans",
+                "label": "Ön Lisans"
+              },
+              {
+                "value": "lisans",
+                "label": "Lisans"
+              },
+              {
+                "value": "yüksek_lisans",
+                "label": "Yüksek Lisans"
+              },
+              {
+                "value": "doktora",
+                "label": "Doktora"
+              }
+            ]
+          },
+          {
+            "id": "q8",
+            "type": "text_short",
+            "label": "Meslek / İş Durumu",
+            "required": true,
+            "placeholder": "Şu anki mesleğiniz veya durumunuz"
+          },
+          {
+            "id": "q9",
+            "type": "single_select",
+            "label": "Çalışma Durumu",
+            "required": false,
+            "options": [
+              {
+                "value": "tam_zamanlı_çalışıyor",
+                "label": "Tam zamanlı çalışıyor"
+              },
+              {
+                "value": "yarı_zamanlı",
+                "label": "Yarı zamanlı"
+              },
+              {
+                "value": "serbest_meslek",
+                "label": "Serbest meslek"
+              },
+              {
+                "value": "i_şsiz",
+                "label": "İşsiz"
+              },
+              {
+                "value": "öğrenci",
+                "label": "Öğrenci"
+              },
+              {
+                "value": "emekli",
+                "label": "Emekli"
+              },
+              {
+                "value": "ev_hanımı",
+                "label": "Ev hanımı"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_2",
+        "title": "BÖLÜM 2: İLETİŞİM BİLGİLERİ",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q10",
+            "type": "phone",
+            "label": "Cep Telefonu",
+            "required": true,
+            "placeholder": "Hatırlatma SMS'leri bu numaraya gönderilecek"
+          },
+          {
+            "id": "q11",
+            "type": "email",
+            "label": "E-posta Adresi",
+            "required": true,
+            "placeholder": "Oturum bilgileri ve bildirimler için"
+          },
+          {
+            "id": "q12",
+            "type": "text_short",
+            "label": "Adres (İl/İlçe)",
+            "required": false
+          },
+          {
+            "id": "q13",
+            "type": "multi_select",
+            "label": "Tercih Edilen İletişim Yöntemi",
+            "required": true,
+            "options": [
+              {
+                "value": "sms",
+                "label": "SMS"
+              },
+              {
+                "value": "e_posta",
+                "label": "E-posta"
+              },
+              {
+                "value": "telefon_araması",
+                "label": "Telefon araması"
+              },
+              {
+                "value": "whatsapp",
+                "label": "WhatsApp"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_3",
+        "title": "BÖLÜM 3: ACİL DURUM İLETİŞİM",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q14",
+            "type": "text_short",
+            "label": "Acil Durumda Aranacak Kişi",
+            "required": true,
+            "placeholder": "Ad ve soyad"
+          },
+          {
+            "id": "q15",
+            "type": "single_select",
+            "label": "Yakınlık Derecesi",
+            "required": true,
+            "options": [
+              {
+                "value": "eş",
+                "label": "Eş"
+              },
+              {
+                "value": "anne_baba",
+                "label": "Anne/Baba"
+              },
+              {
+                "value": "kardeş",
+                "label": "Kardeş"
+              },
+              {
+                "value": "arkadaş",
+                "label": "Arkadaş"
+              },
+              {
+                "value": "diğer",
+                "label": "Diğer"
+              }
+            ]
+          },
+          {
+            "id": "q16",
+            "type": "phone",
+            "label": "Acil Durum Telefonu",
+            "required": true
+          }
+        ]
+      },
+      {
+        "id": "section_4",
+        "title": "BÖLÜM 4: BAŞVURU NEDENİ",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q17",
+            "type": "text_long",
+            "label": "Başvuru Nedeniniz",
+            "required": true,
+            "placeholder": "Size en çok sıkıntı veren durumu kısaca anlatınız"
+          },
+          {
+            "id": "q18",
+            "type": "single_select",
+            "label": "Şikayetleriniz ne zaman başladı?",
+            "required": true,
+            "options": [
+              {
+                "value": "son_1_hafta",
+                "label": "Son 1 hafta"
+              },
+              {
+                "value": "son_1_ay",
+                "label": "Son 1 ay"
+              },
+              {
+                "value": "son_3_ay",
+                "label": "Son 3 ay"
+              },
+              {
+                "value": "son_6_ay",
+                "label": "Son 6 ay"
+              },
+              {
+                "value": "son_1_yıl",
+                "label": "Son 1 yıl"
+              },
+              {
+                "value": "1_yıldan_fazla",
+                "label": "1 yıldan fazla"
+              },
+              {
+                "value": "çocukluktan_beri",
+                "label": "Çocukluktan beri"
+              }
+            ]
+          },
+          {
+            "id": "q19",
+            "type": "text_long",
+            "label": "Şikayetlerinizi tetikleyen bir olay var mı?",
+            "required": false,
+            "placeholder": "Varsa kısaca belirtiniz"
+          },
+          {
+            "id": "q20",
+            "type": "scale",
+            "label": "Günlük yaşamınızı ne kadar etkiliyor?",
+            "required": true,
+            "placeholder": "1 = Hiç etkilemiyor, 10 = Çok şiddetli etkiliyor",
+            "validation": { "min": 1, "max": 10 }
+          },
+          {
+            "id": "q21",
+            "type": "multi_select",
+            "label": "Yardım almak istediğiniz alanlar",
+            "required": true,
+            "placeholder": "Birden fazla seçebilirsiniz",
+            "options": [
+              {
+                "value": "depresyon_mutsuzluk",
+                "label": "Depresyon / Mutsuzluk"
+              },
+              {
+                "value": "kaygı_endişe",
+                "label": "Kaygı / Endişe"
+              },
+              {
+                "value": "panik_atak",
+                "label": "Panik atak"
+              },
+              {
+                "value": "takıntılar_okb",
+                "label": "Takıntılar (OKB)"
+              },
+              {
+                "value": "travma_kötü_anılar",
+                "label": "Travma / Kötü anılar"
+              },
+              {
+                "value": "i_lişki_sorunları",
+                "label": "İlişki sorunları"
+              },
+              {
+                "value": "aile_içi_sorunlar",
+                "label": "Aile içi sorunlar"
+              },
+              {
+                "value": "stres_tükenmişlik",
+                "label": "Stres / Tükenmişlik"
+              },
+              {
+                "value": "uyku_sorunları",
+                "label": "Uyku sorunları"
+              },
+              {
+                "value": "yeme_sorunları",
+                "label": "Yeme sorunları"
+              },
+              {
+                "value": "öfke_kontrolü",
+                "label": "Öfke kontrolü"
+              },
+              {
+                "value": "özgüven_eksikliği",
+                "label": "Özgüven eksikliği"
+              },
+              {
+                "value": "yas_kayıp",
+                "label": "Yas / Kayıp"
+              },
+              {
+                "value": "cinsel_sorunlar",
+                "label": "Cinsel sorunlar"
+              },
+              {
+                "value": "dikkat_odaklanma_güçlüğü",
+                "label": "Dikkat / Odaklanma güçlüğü"
+              },
+              {
+                "value": "madde_alkol_kullanımı",
+                "label": "Madde / Alkol kullanımı"
+              },
+              {
+                "value": "i_ş_kariyer_sorunları",
+                "label": "İş / Kariyer sorunları"
+              },
+              {
+                "value": "sosyal_ilişki_güçlükleri",
+                "label": "Sosyal ilişki güçlükleri"
+              },
+              {
+                "value": "diğer",
+                "label": "Diğer"
+              }
+            ],
+            "triggersAddonForms": true
+          }
+        ]
+      },
+      {
+        "id": "section_5",
+        "title": "BÖLÜM 5: TIBBİ GEÇMİŞ",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q22",
+            "type": "multi_select",
+            "label": "Bilinen kronik hastalıklarınız var mı?",
+            "required": true,
+            "options": [
+              {
+                "value": "diyabet",
+                "label": "Diyabet"
+              },
+              {
+                "value": "tiroid",
+                "label": "Tiroid"
+              },
+              {
+                "value": "hipertansiyon",
+                "label": "Hipertansiyon"
+              },
+              {
+                "value": "kalp_hastalığı",
+                "label": "Kalp hastalığı"
+              },
+              {
+                "value": "epilepsi",
+                "label": "Epilepsi"
+              },
+              {
+                "value": "astım",
+                "label": "Astım"
+              },
+              {
+                "value": "kanser",
+                "label": "Kanser"
+              },
+              {
+                "value": "otoimmün_hastalık",
+                "label": "Otoimmün hastalık"
+              },
+              {
+                "value": "yok",
+                "label": "Yok"
+              },
+              {
+                "value": "diğer_belirtiniz",
+                "label": "Diğer (belirtiniz)"
+              }
+            ]
+          },
+          {
+            "id": "q23",
+            "type": "text_long",
+            "label": "Şu anda kullandığınız ilaçlar",
+            "required": false,
+            "placeholder": "İlaç adı, dozu ve kullanım süresi"
+          },
+          {
+            "id": "q24",
+            "type": "single_select",
+            "label": "Psikiyatrik ilaç kullanıyor musunuz?",
+            "required": true,
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "evet_belirtiniz",
+                "label": "Evet (belirtiniz)"
+              }
+            ]
+          },
+          {
+            "id": "q25",
+            "type": "text_short",
+            "label": "Psikiyatrik ilaç adı ve dozu",
+            "required": false
+          },
+          {
+            "id": "q26",
+            "type": "text_short",
+            "label": "Alerji veya ilaç hassasiyetiniz var mı?",
+            "required": false
+          },
+          {
+            "id": "q27",
+            "type": "single_select",
+            "label": "Kafa travması / bayılma geçmişi",
+            "required": false,
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "evet_belirtiniz",
+                "label": "Evet (belirtiniz)"
+              }
+            ]
+          },
+          {
+            "id": "q28",
+            "type": "single_select",
+            "label": "Hamilelik durumu (kadın)",
+            "required": false,
+            "options": [
+              {
+                "value": "hamile_değilim",
+                "label": "Hamile değilim"
+              },
+              {
+                "value": "hamileyim",
+                "label": "Hamileyim"
+              },
+              {
+                "value": "emzirme_dönemindeyim",
+                "label": "Emzirme dönemindeyim"
+              },
+              {
+                "value": "geçerli_değil",
+                "label": "Geçerli değil"
+              }
+            ],
+            "condition": {
+              "field": "q5",
+              "operator": "equals",
+              "value": "kadin"
+            }
+          }
+        ]
+      },
+      {
+        "id": "section_6",
+        "title": "BÖLÜM 6: PSİKOLOJİK GEÇMİŞ",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q29",
+            "type": "single_select",
+            "label": "Daha önce psikolojik destek aldınız mı?",
+            "required": true,
+            "options": [
+              {
+                "value": "hayır_ilk_kez",
+                "label": "Hayır, ilk kez"
+              },
+              {
+                "value": "evet_daha_önce_aldım",
+                "label": "Evet, daha önce aldım"
+              }
+            ]
+          },
+          {
+            "id": "q30",
+            "type": "text_short",
+            "label": "Önceki terapi süresi",
+            "required": false,
+            "placeholder": "Örn: 6 ay, 2019-2020"
+          },
+          {
+            "id": "q31",
+            "type": "multi_select",
+            "label": "Önceki terapi yaklaşımı",
+            "required": false,
+            "options": [
+              {
+                "value": "bireysel_terapi",
+                "label": "Bireysel terapi"
+              },
+              {
+                "value": "çift_terapisi",
+                "label": "Çift terapisi"
+              },
+              {
+                "value": "aile_terapisi",
+                "label": "Aile terapisi"
+              },
+              {
+                "value": "grup_terapisi",
+                "label": "Grup terapisi"
+              },
+              {
+                "value": "bilmiyorum",
+                "label": "Bilmiyorum"
+              }
+            ]
+          },
+          {
+            "id": "q32",
+            "type": "single_select",
+            "label": "Önceki terapiyi bırakma nedeni",
+            "required": false,
+            "options": [
+              {
+                "value": "tamamladım",
+                "label": "Tamamladım"
+              },
+              {
+                "value": "fayda_göremedim",
+                "label": "Fayda göremedim"
+              },
+              {
+                "value": "ekonomik_nedenler",
+                "label": "Ekonomik nedenler"
+              },
+              {
+                "value": "zaman_bulamadım",
+                "label": "Zaman bulamadım"
+              },
+              {
+                "value": "terapistle_uyumsuzluk",
+                "label": "Terapistle uyumsuzluk"
+              },
+              {
+                "value": "diğer",
+                "label": "Diğer"
+              }
+            ]
+          },
+          {
+            "id": "q33",
+            "type": "single_select",
+            "label": "Psikiyatrik tanı aldınız mı?",
+            "required": true,
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "evet_tanı_adını_belirtiniz",
+                "label": "Evet (tanı adını belirtiniz)"
+              }
+            ]
+          },
+          {
+            "id": "q34",
+            "type": "single_select",
+            "label": "Psikiyatrik yatış geçmişi",
+            "required": true,
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "evet_belirtiniz",
+                "label": "Evet (belirtiniz)"
+              }
+            ]
+          },
+          {
+            "id": "q35",
+            "type": "single_select",
+            "label": "İntihar düşüncesi veya girişimi geçmişi",
+            "required": true,
+            "placeholder": "⚠️ Kriz butonu ve acil yönlendirme",
+            "options": [
+              {
+                "value": "hiçbir_zaman",
+                "label": "Hiçbir zaman"
+              },
+              {
+                "value": "geçmişte_düşünce_oldu",
+                "label": "Geçmişte düşünce oldu"
+              },
+              {
+                "value": "geçmişte_girişim_oldu",
+                "label": "Geçmişte girişim oldu"
+              },
+              {
+                "value": "şu_anda_düşüncem_var",
+                "label": "Şu anda düşüncem var"
+              }
+            ],
+            "crisisTrigger": {
+              "values": ["şu_anda_düşüncem_var"],
+              "action": "crisis_protocol"
+            }
+          },
+          {
+            "id": "q36",
+            "type": "single_select",
+            "label": "Kendine zarar verme davranışı",
+            "required": true,
+            "options": [
+              {
+                "value": "hiçbir_zaman",
+                "label": "Hiçbir zaman"
+              },
+              {
+                "value": "geçmişte",
+                "label": "Geçmişte"
+              },
+              {
+                "value": "devam_ediyor",
+                "label": "Devam ediyor"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_7",
+        "title": "BÖLÜM 7: AİLE GEÇMİŞİ",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q37",
+            "type": "multi_select",
+            "label": "Ailede psikiyatrik hastalık öyküsü",
+            "required": true,
+            "options": [
+              {
+                "value": "depresyon",
+                "label": "Depresyon"
+              },
+              {
+                "value": "anksiyete",
+                "label": "Anksiyete"
+              },
+              {
+                "value": "bipolar_bozukluk",
+                "label": "Bipolar bozukluk"
+              },
+              {
+                "value": "şizofreni",
+                "label": "Şizofreni"
+              },
+              {
+                "value": "alkol_madde_bağımlılığı",
+                "label": "Alkol/madde bağımlılığı"
+              },
+              {
+                "value": "i_ntihar",
+                "label": "İntihar"
+              },
+              {
+                "value": "bilmiyorum",
+                "label": "Bilmiyorum"
+              },
+              {
+                "value": "yok",
+                "label": "Yok"
+              }
+            ]
+          },
+          {
+            "id": "q38",
+            "type": "multi_select",
+            "label": "Ailede hangi bireyler?",
+            "required": false,
+            "options": [
+              {
+                "value": "anne",
+                "label": "Anne"
+              },
+              {
+                "value": "baba",
+                "label": "Baba"
+              },
+              {
+                "value": "kardeş",
+                "label": "Kardeş"
+              },
+              {
+                "value": "büyükanne_baba",
+                "label": "Büyükanne/baba"
+              },
+              {
+                "value": "hala_amca_dayı_teyze",
+                "label": "Hala/Amca/Dayı/Teyze"
+              }
+            ],
+            "condition": {
+              "field": "q37",
+              "operator": "not_equals",
+              "value": "yok"
+            }
+          },
+          {
+            "id": "q39",
+            "type": "single_select",
+            "label": "Çocukluk döneminde travmatik yaşantı",
+            "required": true,
+            "placeholder": "Danışanın sınırlarına saygılı seçenek",
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "evet_detay_paylaşmak_istiyorum",
+                "label": "Evet (detay paylaşmak istiyorum)"
+              },
+              {
+                "value": "evet_şimdilik_paylaşmak_istemiyorum",
+                "label": "Evet (şimdilik paylaşmak istemiyorum)"
+              }
+            ]
+          },
+          {
+            "id": "q40",
+            "type": "single_select",
+            "label": "Anne-baba ilişki durumu",
+            "required": false,
+            "options": [
+              {
+                "value": "birlikte",
+                "label": "Birlikte"
+              },
+              {
+                "value": "boşanmış",
+                "label": "Boşanmış"
+              },
+              {
+                "value": "ayrı_yaşıyor",
+                "label": "Ayrı yaşıyor"
+              },
+              {
+                "value": "biri_ikisi_vefat_etti",
+                "label": "Biri/ikisi vefat etti"
+              }
+            ]
+          },
+          {
+            "id": "q41",
+            "type": "number",
+            "label": "Çocuk sayısı (varsa)",
+            "required": false
+          }
+        ]
+      },
+      {
+        "id": "section_8",
+        "title": "BÖLÜM 8: YAŞAM TARZI VE ALIŞKANLIKLAR",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q42",
+            "type": "single_select",
+            "label": "Alkol kullanımı",
+            "required": true,
+            "options": [
+              {
+                "value": "hiç_kullanmıyorum",
+                "label": "Hiç kullanmıyorum"
+              },
+              {
+                "value": "sosyal_ayda_birkaç_kez",
+                "label": "Sosyal (ayda birkaç kez)"
+              },
+              {
+                "value": "haftada_birkaç_kez",
+                "label": "Haftada birkaç kez"
+              },
+              {
+                "value": "her_gün",
+                "label": "Her gün"
+              },
+              {
+                "value": "bıraktım",
+                "label": "Bıraktım"
+              }
+            ]
+          },
+          {
+            "id": "q43",
+            "type": "single_select",
+            "label": "Sigara kullanımı",
+            "required": true,
+            "options": [
+              {
+                "value": "hiç_içmedim",
+                "label": "Hiç içmedim"
+              },
+              {
+                "value": "i_çiyorum_adet_gün",
+                "label": "İçiyorum (__adet/gün)"
+              },
+              {
+                "value": "bıraktım",
+                "label": "Bıraktım"
+              }
+            ]
+          },
+          {
+            "id": "q44",
+            "type": "single_select",
+            "label": "Madde kullanımı",
+            "required": true,
+            "placeholder": "Gizlilik vurgusu yapılmalı",
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "geçmişte_denedim",
+                "label": "Geçmişte denedim"
+              },
+              {
+                "value": "ara_sıra_kullanıyorum",
+                "label": "Ara sıra kullanıyorum"
+              },
+              {
+                "value": "düzenli_kullanıyorum",
+                "label": "Düzenli kullanıyorum"
+              }
+            ]
+          },
+          {
+            "id": "q45",
+            "type": "single_select",
+            "label": "Uyku düzeniniz nasıl?",
+            "required": true,
+            "options": [
+              {
+                "value": "i_yi_uyuyorum",
+                "label": "İyi uyuyorum"
+              },
+              {
+                "value": "uyumakta_güçlük",
+                "label": "Uyumakta güçlük"
+              },
+              {
+                "value": "sık_uyanma",
+                "label": "Sık uyanma"
+              },
+              {
+                "value": "erken_uyanma",
+                "label": "Erken uyanma"
+              },
+              {
+                "value": "çok_fazla_uyuma",
+                "label": "Çok fazla uyuma"
+              },
+              {
+                "value": "düzensiz",
+                "label": "Düzensiz"
+              }
+            ]
+          },
+          {
+            "id": "q46",
+            "type": "single_select",
+            "label": "Düzenli egzersiz yapıyor musunuz?",
+            "required": false,
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "haftada_1_2_gün",
+                "label": "Haftada 1-2 gün"
+              },
+              {
+                "value": "haftada_3_4_gün",
+                "label": "Haftada 3-4 gün"
+              },
+              {
+                "value": "her_gün",
+                "label": "Her gün"
+              }
+            ]
+          },
+          {
+            "id": "q47",
+            "type": "single_select",
+            "label": "Beslenme düzeninizi nasıl tanımlarsınız?",
+            "required": false,
+            "options": [
+              {
+                "value": "düzenli_ve_dengeli",
+                "label": "Düzenli ve dengeli"
+              },
+              {
+                "value": "düzensiz",
+                "label": "Düzensiz"
+              },
+              {
+                "value": "aşırı_yeme_eğilimi",
+                "label": "Aşırı yeme eğilimi"
+              },
+              {
+                "value": "i_ştahsızlık",
+                "label": "İştahsızlık"
+              },
+              {
+                "value": "diyet_yapıyorum",
+                "label": "Diyet yapıyorum"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_9",
+        "title": "BÖLÜM 9: TERAPİ BEKLENTİLERİ",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q48",
+            "type": "text_long",
+            "label": "Bu süreçten beklentiniz nedir?",
+            "required": true,
+            "placeholder": "Terapiden ne elde etmek istiyorsunuz?"
+          },
+          {
+            "id": "q49",
+            "type": "single_select",
+            "label": "Tercih ettiğiniz görüşme şekli",
+            "required": true,
+            "options": [
+              {
+                "value": "online_video_görüşme",
+                "label": "Online (video görüşme)"
+              },
+              {
+                "value": "yüz_yüze",
+                "label": "Yüz yüze"
+              },
+              {
+                "value": "fark_etmez",
+                "label": "Fark etmez"
+              }
+            ]
+          },
+          {
+            "id": "q50",
+            "type": "single_select",
+            "label": "Tercih ettiğiniz seans sıklığı",
+            "required": true,
+            "options": [
+              {
+                "value": "haftada_1",
+                "label": "Haftada 1"
+              },
+              {
+                "value": "haftada_2",
+                "label": "Haftada 2"
+              },
+              {
+                "value": "15_günde_1",
+                "label": "15 günde 1"
+              },
+              {
+                "value": "ayda_1",
+                "label": "Ayda 1"
+              },
+              {
+                "value": "kararsızım",
+                "label": "Kararsızım"
+              }
+            ]
+          },
+          {
+            "id": "q51",
+            "type": "single_select",
+            "label": "Bizi nereden duydunuz?",
+            "required": false,
+            "options": [
+              {
+                "value": "i_nternet_araması",
+                "label": "İnternet araması"
+              },
+              {
+                "value": "sosyal_medya",
+                "label": "Sosyal medya"
+              },
+              {
+                "value": "arkadaş_tanıdık_önerisi",
+                "label": "Arkadaş/tanıdık önerisi"
+              },
+              {
+                "value": "doktor_yönlendirmesi",
+                "label": "Doktor yönlendirmesi"
+              },
+              {
+                "value": "sigorta_kurum",
+                "label": "Sigorta/kurum"
+              },
+              {
+                "value": "diğer",
+                "label": "Diğer"
+              }
+            ]
+          },
+          {
+            "id": "q52",
+            "type": "text_long",
+            "label": "Seansta konuşmak istemediğiniz konular var mı?",
+            "required": false,
+            "placeholder": "Sınırlarınıza saygı duyuyoruz"
+          }
+        ]
+      },
+      {
+        "id": "section_10",
+        "title": "BÖLÜM 10: BİLGİLENDİRİLMİŞ ONAM",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q53",
+            "type": "text_short",
+            "label": "Gizlilik ve KVKK Aydınlatma Metni",
+            "required": true,
+            "placeholder": "Metin linki ile birlikte"
+          },
+          {
+            "id": "q54",
+            "type": "text_short",
+            "label": "Kişisel Verilerin İşlenmesine Açık Rıza",
+            "required": true,
+            "placeholder": "KVKK m.6 özel nitelikli veri"
+          },
+          {
+            "id": "q55",
+            "type": "text_short",
+            "label": "Tele-sağlık Hizmet Sözleşmesi",
+            "required": false
+          },
+          {
+            "id": "q56",
+            "type": "text_short",
+            "label": "Randevu İptal Politikası",
+            "required": true,
+            "placeholder": "24 saat öncesi ücretsiz iptal"
+          },
+          {
+            "id": "q57",
+            "type": "text_short",
+            "label": "Elektronik İmza / Onay",
+            "required": true,
+            "placeholder": "Dijital imza veya \"Onaylıyorum\" butonu"
+          }
+        ]
+      }
+    ]
+  }
+}

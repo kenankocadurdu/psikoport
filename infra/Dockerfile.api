@@ -1,0 +1,39 @@
+FROM node:20-alpine AS base
+RUN apk add --no-cache openssl libc6-compat
+RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
+WORKDIR /app
+
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/api/package.json ./apps/api/
+COPY shared/packages/shared/package.json ./shared/packages/shared/
+COPY shared/packages/form-schemas/package.json ./shared/packages/form-schemas/
+COPY shared/packages/scoring-engine/package.json ./shared/packages/scoring-engine/
+COPY apps/frontend/package.json ./apps/frontend/
+RUN pnpm install --frozen-lockfile
+
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=deps /app/shared/packages/shared/node_modules ./shared/packages/shared/node_modules
+COPY --from=deps /app/shared/packages/form-schemas/node_modules ./shared/packages/form-schemas/node_modules
+COPY --from=deps /app/shared/packages/scoring-engine/node_modules ./shared/packages/scoring-engine/node_modules
+COPY . .
+WORKDIR /app/apps/api
+RUN pnpm exec prisma generate
+WORKDIR /app
+RUN pnpm build --filter=@psikoport/shared --filter=api
+
+FROM base AS runner
+ENV NODE_ENV=production
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/package.json ./apps/api/
+COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/shared/packages ./shared/packages
+WORKDIR /app/apps/api
+EXPOSE 3001
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema.prisma && pnpm exec prisma db seed && node dist/main.js"]

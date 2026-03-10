@@ -1,0 +1,571 @@
+{
+  "code": "DASS21",
+  "title": "DASS-21 Depresyon Anksiyete Stres Ölçeği",
+  "description": "21 maddelik depresyon, anksiyete ve stres alt ölçekleri. Lovibond ve Lovibond (1995), Türkçe: Sarıçam (2018).",
+  "formType": "PSYCHOMETRIC",
+  "category": "psychometric",
+  "estimatedMinutes": 7,
+  "schema": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "dass21_main",
+        "title": "Depresyon, Anksiyete ve Stres",
+        "icon": "brain",
+        "fields": [
+          {
+            "id": "q1",
+            "type": "single_select",
+            "label": "Bir şeyleri yapmak için gerekli girişimi göstermekte zorlandım",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q2",
+            "type": "single_select",
+            "label": "Ağzımın kuruduğunu hissettim",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q3",
+            "type": "single_select",
+            "label": "Olumlu hiçbir duygu hissedemedim",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q4",
+            "type": "single_select",
+            "label": "Nefes almakta zorlandım (nefes nefese kaldım)",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q5",
+            "type": "single_select",
+            "label": "Hayata ilgi duymakta zorlandım",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q6",
+            "type": "single_select",
+            "label": "Normal şartlarda üzülmeyeceğim şeylere aşırı tepki verdim",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q7",
+            "type": "single_select",
+            "label": "Titremekte zorlandım (ellerim titriyordu)",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q8",
+            "type": "single_select",
+            "label": "Sürekli gergin hissettim",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q9",
+            "type": "single_select",
+            "label": "Endişe verici durumlarda panik atak geçirdim",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q10",
+            "type": "single_select",
+            "label": "Hayattan heyecan duymakta zorlandım",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q11",
+            "type": "single_select",
+            "label": "Kendimi rahatlamakta zorlandım",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q12",
+            "type": "single_select",
+            "label": "Tolerans seviyemi korumakta zorlandım",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q13",
+            "type": "single_select",
+            "label": "Kendimi üzgün ve depresif hissettim",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q14",
+            "type": "single_select",
+            "label": "Zihnimden geçenler nedeniyle sakin kalamadım",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q15",
+            "type": "single_select",
+            "label": "Boğulacakmış gibi hissettim",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q16",
+            "type": "single_select",
+            "label": "Hiçbir şeye heveslenmekte zorlandım",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q17",
+            "type": "single_select",
+            "label": "Hayatın değerli olmadığını hissettim",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q18",
+            "type": "single_select",
+            "label": "Duygusal tepkilerimi kontrol etmekte zorlandım",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q19",
+            "type": "single_select",
+            "label": "Kalbimin çarptığını hissettim (nedensiz)",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q20",
+            "type": "single_select",
+            "label": "Korku nedeniyle çok panik hissettim",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          },
+          {
+            "id": "q21",
+            "type": "single_select",
+            "label": "Hayatta herhangi bir şeye heyecan duymakta zorlandım",
+            "required": true,
+            "options": [
+              {
+                "value": "0",
+                "label": "Hiç uygulanmadı"
+              },
+              {
+                "value": "1",
+                "label": "Kısmen uygulandı"
+              },
+              {
+                "value": "2",
+                "label": "Oldukça uygulandı"
+              },
+              {
+                "value": "3",
+                "label": "Tamamen uygulandı"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scoringConfig": {
+    "type": "subscale",
+    "response_scale": {
+      "0": "Hiç uygulanmadı",
+      "1": "Kısmen uygulandı",
+      "2": "Oldukça uygulandı",
+      "3": "Tamamen uygulandı"
+    },
+    "subscales": {
+      "depression": {
+        "item_ids": [
+          "q3",
+          "q5",
+          "q10",
+          "q13",
+          "q16",
+          "q17",
+          "q21"
+        ],
+        "multiplier": 2
+      },
+      "anxiety": {
+        "item_ids": [
+          "q2",
+          "q4",
+          "q7",
+          "q9",
+          "q15",
+          "q19",
+          "q20"
+        ],
+        "multiplier": 2
+      },
+      "stress": {
+        "item_ids": [
+          "q1",
+          "q6",
+          "q8",
+          "q11",
+          "q12",
+          "q14",
+          "q18"
+        ],
+        "multiplier": 2
+      }
+    }
+  }
+}

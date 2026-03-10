@@ -1,0 +1,121 @@
+{
+  "code": "GAD7",
+  "title": "GAD-7 Yaygın Anksiyete Bozukluğu Ölçeği",
+  "description": "Son 2 haftadaki anksiyete belirtilerini değerlendiren 7 maddelik ölçek. Spitzer ve ark. (2006).",
+  "formType": "PSYCHOMETRIC",
+  "category": "psychometric",
+  "estimatedMinutes": 2,
+  "schema": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "gad7_main",
+        "title": "Anksiyete Belirtileri",
+        "icon": "anxiety",
+        "fields": [
+          {
+            "id": "q1",
+            "type": "single_select",
+            "label": "Sinirli, endişeli veya diken üstünde hissetme",
+            "required": true,
+            "options": [
+              { "value": "0", "label": "Hiç" },
+              { "value": "1", "label": "Birkaç gün" },
+              { "value": "2", "label": "Günlerin yarısından fazla" },
+              { "value": "3", "label": "Neredeyse her gün" }
+            ]
+          },
+          {
+            "id": "q2",
+            "type": "single_select",
+            "label": "Durduramayacağınız veya kontrol edemeyeceğiniz şekilde endişelenme",
+            "required": true,
+            "options": [
+              { "value": "0", "label": "Hiç" },
+              { "value": "1", "label": "Birkaç gün" },
+              { "value": "2", "label": "Günlerin yarısından fazla" },
+              { "value": "3", "label": "Neredeyse her gün" }
+            ]
+          },
+          {
+            "id": "q3",
+            "type": "single_select",
+            "label": "Çok fazla farklı konuda endişelenme",
+            "required": true,
+            "options": [
+              { "value": "0", "label": "Hiç" },
+              { "value": "1", "label": "Birkaç gün" },
+              { "value": "2", "label": "Günlerin yarısından fazla" },
+              { "value": "3", "label": "Neredeyse her gün" }
+            ]
+          },
+          {
+            "id": "q4",
+            "type": "single_select",
+            "label": "Rahatlamada güçlük çekme",
+            "required": true,
+            "options": [
+              { "value": "0", "label": "Hiç" },
+              { "value": "1", "label": "Birkaç gün" },
+              { "value": "2", "label": "Günlerin yarısından fazla" },
+              { "value": "3", "label": "Neredeyse her gün" }
+            ]
+          },
+          {
+            "id": "q5",
+            "type": "single_select",
+            "label": "O kadar huzursuz hissetme ki oturmakta güçlük çekme",
+            "required": true,
+            "options": [
+              { "value": "0", "label": "Hiç" },
+              { "value": "1", "label": "Birkaç gün" },
+              { "value": "2", "label": "Günlerin yarısından fazla" },
+              { "value": "3", "label": "Neredeyse her gün" }
+            ]
+          },
+          {
+            "id": "q6",
+            "type": "single_select",
+            "label": "Kolay sinirlenme veya çabuk öfkelenme",
+            "required": true,
+            "options": [
+              { "value": "0", "label": "Hiç" },
+              { "value": "1", "label": "Birkaç gün" },
+              { "value": "2", "label": "Günlerin yarısından fazla" },
+              { "value": "3", "label": "Neredeyse her gün" }
+            ]
+          },
+          {
+            "id": "q7",
+            "type": "single_select",
+            "label": "Korkulacak bir şey olacakmış gibi hissetme",
+            "required": true,
+            "options": [
+              { "value": "0", "label": "Hiç" },
+              { "value": "1", "label": "Birkaç gün" },
+              { "value": "2", "label": "Günlerin yarısından fazla" },
+              { "value": "3", "label": "Neredeyse her gün" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scoringConfig": {
+    "type": "sum",
+    "response_scale": {
+      "0": "Hiç",
+      "1": "Birkaç gün",
+      "2": "Günlerin yarısından fazla",
+      "3": "Neredeyse her gün"
+    },
+    "total_score": { "min": 0, "max": 21, "calculation": "SUM(all_items)" },
+    "severity_levels": [
+      { "range": [0, 4], "level": "minimal", "label": "Minimal anksiyete" },
+      { "range": [5, 9], "level": "mild", "label": "Hafif anksiyete" },
+      { "range": [10, 14], "level": "moderate", "label": "Orta anksiyete" },
+      { "range": [15, 21], "level": "severe", "label": "Ağır anksiyete" }
+    ],
+    "clinical_cutoff": 8
+  }
+}

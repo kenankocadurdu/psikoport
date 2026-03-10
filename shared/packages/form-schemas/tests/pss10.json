@@ -1,0 +1,41 @@
+{
+  "code": "PSS10",
+  "title": "PSS-10 Algılanan Stres Ölçeği",
+  "description": "Son 1 aydaki algılanan stres düzeyini değerlendiren 10 maddelik ölçek. Ters puanlama: q4, q5, q7, q8. Cohen ve ark. (1983), Türkçe: Eskin ve ark.",
+  "formType": "PSYCHOMETRIC",
+  "category": "psychometric",
+  "estimatedMinutes": 4,
+  "schema": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "pss10_main",
+        "title": "Algılanan Stres",
+        "icon": "alert-circle",
+        "fields": [
+          {"id": "q1", "type": "single_select", "label": "Son 1 ay içinde beklenmedik şeyler olduğunda ne kadar üzüldünüz?", "required": true, "options": [{"value": "0", "label": "Hiçbir zaman"}, {"value": "1", "label": "Neredeyse hiçbir zaman"}, {"value": "2", "label": "Bazen"}, {"value": "3", "label": "Sık sık"}, {"value": "4", "label": "Çok sık"}]},
+          {"id": "q2", "type": "single_select", "label": "Son 1 ay içinde hayatınızdaki önemli şeyleri kontrol edemediğinizi ne kadar hissettiniz?", "required": true, "options": [{"value": "0", "label": "Hiçbir zaman"}, {"value": "1", "label": "Neredeyse hiçbir zaman"}, {"value": "2", "label": "Bazen"}, {"value": "3", "label": "Sık sık"}, {"value": "4", "label": "Çok sık"}]},
+          {"id": "q3", "type": "single_select", "label": "Son 1 ay içinde gergin ve stresli hissettiğiniz ne kadar oldu?", "required": true, "options": [{"value": "0", "label": "Hiçbir zaman"}, {"value": "1", "label": "Neredeyse hiçbir zaman"}, {"value": "2", "label": "Bazen"}, {"value": "3", "label": "Sık sık"}, {"value": "4", "label": "Çok sık"}]},
+          {"id": "q4", "type": "single_select", "label": "Son 1 ay içinde kişisel sorunlarınızla etkili bir şekilde başa çıktığınızı ne kadar hissettiniz?", "required": true, "options": [{"value": "0", "label": "Hiçbir zaman"}, {"value": "1", "label": "Neredeyse hiçbir zaman"}, {"value": "2", "label": "Bazen"}, {"value": "3", "label": "Sık sık"}, {"value": "4", "label": "Çok sık"}]},
+          {"id": "q5", "type": "single_select", "label": "Son 1 ay içinde hayatınızdaki değişikliklere ne kadar iyi uyum sağladığınızı hissettiniz?", "required": true, "options": [{"value": "0", "label": "Hiçbir zaman"}, {"value": "1", "label": "Neredeyse hiçbir zaman"}, {"value": "2", "label": "Bazen"}, {"value": "3", "label": "Sık sık"}, {"value": "4", "label": "Çok sık"}]},
+          {"id": "q6", "type": "single_select", "label": "Son 1 ay içinde görevlerinizi ve sorumluluklarınızı kontrol ettiğinizi ne kadar hissettiniz?", "required": true, "options": [{"value": "0", "label": "Hiçbir zaman"}, {"value": "1", "label": "Neredeyse hiçbir zaman"}, {"value": "2", "label": "Bazen"}, {"value": "3", "label": "Sık sık"}, {"value": "4", "label": "Çok sık"}]},
+          {"id": "q7", "type": "single_select", "label": "Son 1 ay içinde öfkenizi kontrol edebildiğinizi ne kadar hissettiniz?", "required": true, "options": [{"value": "0", "label": "Hiçbir zaman"}, {"value": "1", "label": "Neredeyse hiçbir zaman"}, {"value": "2", "label": "Bazen"}, {"value": "3", "label": "Sık sık"}, {"value": "4", "label": "Çok sık"}]},
+          {"id": "q8", "type": "single_select", "label": "Son 1 ay içinde işlerin üstesinden geldiğinizi ne kadar hissettiniz?", "required": true, "options": [{"value": "0", "label": "Hiçbir zaman"}, {"value": "1", "label": "Neredeyse hiçbir zaman"}, {"value": "2", "label": "Bazen"}, {"value": "3", "label": "Sık sık"}, {"value": "4", "label": "Çok sık"}]},
+          {"id": "q9", "type": "single_select", "label": "Son 1 ay içinde günlük sıkıntılarınız üzerinde kontrol sahibi olduğunuzu ne kadar hissettiniz?", "required": true, "options": [{"value": "0", "label": "Hiçbir zaman"}, {"value": "1", "label": "Neredeyse hiçbir zaman"}, {"value": "2", "label": "Bazen"}, {"value": "3", "label": "Sık sık"}, {"value": "4", "label": "Çok sık"}]},
+          {"id": "q10", "type": "single_select", "label": "Son 1 ay içinde zorluklar birikmiş ve üstesinden gelemediğinizi ne kadar hissettiniz?", "required": true, "options": [{"value": "0", "label": "Hiçbir zaman"}, {"value": "1", "label": "Neredeyse hiçbir zaman"}, {"value": "2", "label": "Bazen"}, {"value": "3", "label": "Sık sık"}, {"value": "4", "label": "Çok sık"}]}
+        ]
+      }
+    ]
+  },
+  "scoringConfig": {
+    "type": "sum",
+    "response_scale": {"0": "Hiçbir zaman", "1": "Neredeyse hiçbir zaman", "2": "Bazen", "3": "Sık sık", "4": "Çok sık"},
+    "total_score": {"min": 0, "max": 40, "calculation": "SUM(items with reverse for q4,q5,q7,q8)"},
+    "reverse_item_ids": ["q4", "q5", "q7", "q8"],
+    "severity_levels": [
+      {"range": [0, 13], "level": "low", "label": "Düşük algılanan stres"},
+      {"range": [14, 26], "level": "moderate", "label": "Orta algılanan stres"},
+      {"range": [27, 40], "level": "high", "label": "Yüksek algılanan stres"}
+    ]
+  }
+}

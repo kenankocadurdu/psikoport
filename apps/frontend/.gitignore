@@ -1,0 +1,9 @@
+# Web-specific ignores (root .gitignore covers the rest)
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

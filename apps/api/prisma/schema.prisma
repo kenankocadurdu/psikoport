@@ -1,0 +1,593 @@
+// Prisma Schema — Psikoport API
+// RLS policies ayrı SQL migration ile eklenecek (TASK-S0-04)
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Auth: Tenants & Users ---
+
+enum TenantPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum VideoProvider {
+  NONE
+  ZOOM
+  GOOGLE_MEET
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum LocationType {
+  IN_PERSON
+  ONLINE
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  PSYCHOLOGIST
+  ASSISTANT
+}
+
+enum LicenseStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+model Tenant {
+  id                 String         @id @default(cuid())
+  name               String
+  slug               String         @unique
+  plan               TenantPlan     @default(FREE)
+  maxClients         Int            @default(10)
+  trialEndsAt        DateTime?
+  subscriptionId     String?
+  defaultSessionFee  Decimal?       @db.Decimal(10, 2)
+  defaultCurrency    String         @default("TRY")
+  videoProvider      VideoProvider  @default(NONE)
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  users               User[]
+  invitations         Invitation[]
+  clients             Client[]
+  appointments        Appointment[]
+  sessionPayments     SessionPayment[]
+  paymentSettings     PaymentSettings[]
+  availabilitySlots   AvailabilitySlot[]
+  calendarIntegrations CalendarIntegration[]
+  externalCalendarEvents ExternalCalendarEvent[]
+  videoIntegrations   VideoIntegration[]
+  consultationNotes  ConsultationNote[]
+  clientFiles        ClientFile[]
+  formDefinitions    FormDefinition[]
+  formSubmissions    FormSubmission[]
+  psychologistProfiles PsychologistProfile[]
+  blogPosts          BlogPost[]
+}
+
+model User {
+  id             String         @id @default(cuid())
+  tenantId       String
+  auth0Sub       String         @unique
+  email          String
+  fullName       String
+  role           UserRole
+  phone          String?
+  is2faEnabled   Boolean        @default(false)
+  licenseStatus  LicenseStatus  @default(PENDING)
+  licenseDocUrl  String?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  formSubmissions FormSubmission[]
+  appointmentsAsPsychologist Appointment[] @relation("PsychologistAppointments")
+  calendarIntegrations CalendarIntegration[]
+  videoIntegrations   VideoIntegration[]
+  paymentSettings     PaymentSettings[]
+  sessionPayments     SessionPayment[]
+  psychologistProfile PsychologistProfile?
+}
+
+model Invitation {
+  id         String    @id @default(cuid())
+  tenantId   String
+  email      String
+  role       UserRole  @default(ASSISTANT)
+  token      String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([token])
+  @@index([email])
+}
+
+// --- Profile: PsychologistProfile (public SEO page) ---
+model PsychologistProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  tenantId        String
+  bio             String?  @db.Text
+  specializations String[] @default([])
+  education       Json?    // [{school, degree, year}]
+  experience      Json?    // [{title, organization, years}]
+  photoUrl        String?
+  sessionTypes    String[] @default([])
+  sessionFee      Decimal? @db.Decimal(10, 2)
+  officeAddress   String?  @db.Text
+  languages       String[] @default([])
+  seoTitle        String?
+  seoDescription  String?  @db.Text
+  seoKeywords     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  tenantId    String
+  title       String
+  content     String    @db.Text
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+// --- Legal: Consents (KVKK) ---
+enum ConsentType {
+  KVKK_DATA_PROCESSING
+  KVKK_SPECIAL_DATA
+  SESSION_RECORDING
+  ONLINE_CONSULTATION
+  CANCELLATION_POLICY
+  PLATFORM_TOS
+}
+
+model ConsentText {
+  id               String      @id @default(cuid())
+  consentType      ConsentType
+  version          Int
+  title            String
+  bodyHtml         String      @db.Text
+  bodyHash         String      // SHA-256 hex
+  diffFromPrevious String?     @db.Text
+  effectiveFrom    DateTime
+  createdAt        DateTime    @default(now())
+
+  @@unique([consentType, version])
+  @@index([consentType])
+  @@index([effectiveFrom])
+}
+
+model Consent {
+  id                String      @id @default(cuid())
+  tenantId          String
+  clientId          String?
+  userId            String?
+  consentType       ConsentType
+  consentTextVersion Int
+  consentTextHash   String
+  isGranted         Boolean     @default(true)
+  grantedAt         DateTime    @default(now())
+  revokedAt         DateTime?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime    @default(now())
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([consentType])
+}
+
+// --- CRM: Clients (Danışan) ---
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Client {
+  id               String    @id @default(cuid())
+  tenantId         String
+  firstName        String
+  lastName         String
+  tcKimlik         String?
+  birthDate        DateTime?
+  gender           String?
+  maritalStatus    String?
+  educationLevel   String?
+  occupation       String?
+  phone            String?
+  email            String?
+  address          String?   @db.Text
+  emergencyContact Json?
+  preferredContact String[]  @default([])
+  tags             String[]  @default([])
+  complaintAreas   String[]  @default([])
+  referralSource   String?
+  sessionFee       Decimal?  @db.Decimal(10, 2)
+  status           ClientStatus @default(ACTIVE)
+  deletedAt        DateTime?
+  anonymizedAt     DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  consultationNotes  ConsultationNote[]
+  clientFiles        ClientFile[]
+  formSubmissions    FormSubmission[]
+  appointments       Appointment[]
+  sessionPayments    SessionPayment[]
+
+  @@index([tenantId])
+  @@index([tenantId, deletedAt])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+// --- CRM: Consultation Notes (CSE — Client-Side Encrypted) ---
+model ConsultationNote {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  clientId             String
+  sessionDate          DateTime
+  sessionNumber        Int?
+  sessionType          String?
+  tags                 String[]  @default([])
+  symptomCategories    String[]  @default([])
+  moodRating           Int?
+  durationMinutes      Int?
+  encryptedContent     Bytes
+  encryptedDek         Bytes
+  contentNonce         Bytes
+  contentAuthTag       Bytes
+  dekNonce             Bytes
+  dekAuthTag           Bytes
+  aiSummaryEncrypted   Bytes?
+  aiSummaryNonce       Bytes?
+  aiSummaryAuthTag     Bytes?
+  aiSummaryDek         Bytes?
+  aiSummaryDekNonce    Bytes?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([sessionDate])
+}
+
+// --- CRM: Client Files (S3) ---
+model ClientFile {
+  id         String   @id @default(cuid())
+  tenantId   String
+  clientId   String
+  fileName   String
+  fileKey    String
+  fileSize   Int
+  mimeType   String
+  uploadedBy String
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([clientId])
+}
+
+// --- Test: Form Definitions ---
+enum FormType {
+  INTAKE
+  INTAKE_ADDON
+  PSYCHOMETRIC
+  CUSTOM
+}
+
+model FormDefinition {
+  id               String    @id @default(cuid())
+  tenantId         String?
+  formType         FormType
+  code             String    @unique
+  title            String
+  description      String?   @db.Text
+  category         String?
+  targetAgeGroup   String?
+  estimatedMinutes Int?
+  licenseStatus    String?
+  schema           Json
+  scoringConfig    Json?
+  version          Int       @default(1)
+  isSystem         Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  tenant         Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  formSubmissions FormSubmission[]
+
+  @@index([tenantId])
+  @@index([formType])
+  @@index([code])
+}
+
+// --- Test: Form Submissions (yanıtlar + puanlama) ---
+enum CompletionStatus {
+  DRAFT
+  COMPLETE
+  EXPIRED
+}
+
+model FormSubmission {
+  id                String           @id @default(cuid())
+  tenantId          String
+  clientId          String
+  formDefinitionId  String
+  psychologistId    String
+  sessionId         String?
+  responses         Json             // { field_id: value }
+  scores            Json?
+  severityLevel     String?
+  riskFlags             String[]         @default([])
+  crisisAcknowledgedAt  DateTime?
+  completionStatus      CompletionStatus @default(DRAFT)
+  submittedAt           DateTime?
+  formVersion       Int              @default(1)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  formDefinition  FormDefinition   @relation(fields: [formDefinitionId], references: [id], onDelete: Cascade)
+  psychologist    User             @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([formDefinitionId])
+  @@index([completionStatus])
+}
+
+// --- Calendar: Appointments ---
+model Appointment {
+  id                 String            @id @default(cuid())
+  tenantId           String
+  clientId           String
+  psychologistId     String
+  startTime          DateTime
+  endTime            DateTime
+  durationMinutes    Int
+  status             AppointmentStatus @default(SCHEDULED)
+  sessionType        String?
+  locationType       LocationType      @default(IN_PERSON)
+  videoProvider      VideoProvider     @default(NONE)
+  videoMeetingUrl    String?
+  videoMeetingId     String?
+  videoHostUrl       String?
+  recurrenceRule     Json?
+  parentId           String?
+  cancellationReason String?
+  cancelledAt        DateTime?
+  reminderSent       Boolean           @default(false)
+  reminderSentAt     DateTime?
+  notes              String?           @db.Text
+  googleEventId      String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  psychologist User         @relation("PsychologistAppointments", fields: [psychologistId], references: [id], onDelete: Cascade)
+  parent       Appointment? @relation("RecurringAppointments", fields: [parentId], references: [id], onDelete: SetNull)
+  children     Appointment[] @relation("RecurringAppointments")
+  sessionPayment SessionPayment?
+
+  @@index([tenantId])
+  @@index([tenantId, startTime])
+  @@index([clientId])
+  @@index([psychologistId])
+  @@index([startTime])
+  @@index([status])
+}
+
+// --- Calendar: Availability Slots ---
+model AvailabilitySlot {
+  id             String   @id @default(cuid())
+  tenantId       String
+  psychologistId String
+  dayOfWeek      Int      // 0=Sunday, 6=Saturday
+  startTime      String   // "09:00"
+  endTime        String   // "17:00"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, psychologistId, dayOfWeek, startTime])
+  @@index([tenantId])
+  @@index([psychologistId])
+}
+
+// --- Calendar: Integrations (OAuth tokens encrypted) ---
+enum CalendarProvider {
+  GOOGLE
+  MICROSOFT
+}
+
+model CalendarIntegration {
+  id                String           @id @default(cuid())
+  tenantId          String
+  psychologistId    String
+  provider          CalendarProvider
+  calendarId        String           // primary or calendar id
+  encryptedAccessToken  Bytes         // AES-256-GCM encrypted
+  encryptedRefreshToken Bytes
+  tokenNonce        Bytes            // GCM nonce for access token
+  refreshTokenNonce Bytes            // GCM nonce for refresh token
+  accessTokenExpiry DateTime?
+  syncToken         String?          // nextSyncToken for incremental sync
+  channelId         String?          // Google push notification channel
+  channelExpiry     DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  psychologist User @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  externalEvents ExternalCalendarEvent[]
+
+  @@unique([tenantId, psychologistId, provider])
+  @@index([tenantId])
+  @@index([psychologistId])
+}
+
+model ExternalCalendarEvent {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  psychologistId       String
+  calendarIntegrationId String
+  googleEventId        String
+  startTime            DateTime
+  endTime              DateTime
+  summary              String?  // "Meşgul" - no client info
+  deleted              Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  integration CalendarIntegration @relation(fields: [calendarIntegrationId], references: [id], onDelete: Cascade)
+
+  @@unique([calendarIntegrationId, googleEventId])
+  @@index([tenantId])
+  @@index([psychologistId])
+}
+
+// --- Video: Zoom/Meet OAuth (encrypted tokens) ---
+model VideoIntegration {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  psychologistId       String
+  provider             VideoProvider
+  encryptedAccessToken Bytes
+  encryptedRefreshToken Bytes?
+  tokenNonce           Bytes
+  refreshTokenNonce    Bytes?
+  accessTokenExpiry    DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  psychologist User   @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, psychologistId, provider])
+  @@index([tenantId])
+  @@index([psychologistId])
+}
+
+// --- Finance: Session Payments & Settings ---
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  NOT_ISSUED
+  ISSUED
+}
+
+model SessionPayment {
+  id             String         @id @default(cuid())
+  tenantId       String
+  clientId       String
+  appointmentId  String         @unique
+  psychologistId String
+  sessionDate    DateTime
+  amount         Decimal        @db.Decimal(10, 2)
+  currency       String         @default("TRY")
+  status         PaymentStatus  @default(PENDING)
+  paidAmount     Decimal?       @db.Decimal(10, 2)
+  paidAt         DateTime?
+  paymentMethod  String?
+  invoiceStatus  InvoiceStatus  @default(NOT_ISSUED)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  appointment  Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  psychologist User         @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([psychologistId])
+  @@index([sessionDate])
+  @@index([status])
+}
+
+model PaymentSettings {
+  id               String   @id @default(cuid())
+  tenantId         String
+  psychologistId   String
+  defaultSessionFee Decimal? @db.Decimal(10, 2)
+  currency         String   @default("TRY")
+  reminderDays     Int      @default(3)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  psychologist User   @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, psychologistId])
+  @@index([tenantId])
+  @@index([psychologistId])
+}
+
+// --- Legal: Audit Logs (WORM — Write Once Read Many) ---
+model AuditLog {
+  id           BigInt   @id @default(autoincrement())
+  tenantId     String
+  userId       String
+  action       String
+  resourceType String
+  resourceId   String?
+  details      Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([createdAt])
+}

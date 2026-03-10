@@ -1,0 +1,562 @@
+{
+  "code": "INTAKE_DEPRESSION",
+  "title": "Depresyon Ek Formu",
+  "description": "Depresyon/mutsuzluk şikayeti olan danışanlar için ek değerlendirme.",
+  "formType": "INTAKE_ADDON",
+  "category": "intake",
+  "estimatedMinutes": 11.5,
+  "schema": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "section_1",
+        "title": "BÖLÜM 1: DUYGUDURUM DEĞERLENDİRMESİ",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q1",
+            "type": "scale",
+            "label": "Genel ruh halinizi nasıl tanımlarsınız?",
+            "required": true,
+            "placeholder": "1 = Çok kötü/umutsuz, 10 = Çok iyi/enerjik",
+            "validation": { "min": 1, "max": 10 }
+          },
+          {
+            "id": "q2",
+            "type": "single_select",
+            "label": "Son 2 haftada kendinizi ne sıklıkla üzgün veya çökkün hissettiniz?",
+            "required": true,
+            "placeholder": "PHQ-9 formatı",
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "birkaç_gün",
+                "label": "Birkaç gün"
+              },
+              {
+                "value": "günlerin_yarısından_fazlası",
+                "label": "Günlerin yarısından fazlası"
+              },
+              {
+                "value": "neredeyse_her_gün",
+                "label": "Neredeyse her gün"
+              }
+            ]
+          },
+          {
+            "id": "q3",
+            "type": "single_select",
+            "label": "Son 2 haftada aktivitelere ilgi veya zevk kaybı yaşadınız mı?",
+            "required": true,
+            "placeholder": "Anhedoni değerlendirmesi",
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "birkaç_gün",
+                "label": "Birkaç gün"
+              },
+              {
+                "value": "günlerin_yarısından_fazlası",
+                "label": "Günlerin yarısından fazlası"
+              },
+              {
+                "value": "neredeyse_her_gün",
+                "label": "Neredeyse her gün"
+              }
+            ]
+          },
+          {
+            "id": "q4",
+            "type": "single_select",
+            "label": "Gün içinde en çok ne zaman kendinizi kötü hissediyorsunuz?",
+            "required": true,
+            "placeholder": "Diurnal varyasyon",
+            "options": [
+              {
+                "value": "sabah_kalktığımda",
+                "label": "Sabah kalktığımda"
+              },
+              {
+                "value": "öğleden_sonra",
+                "label": "Öğleden sonra"
+              },
+              {
+                "value": "akşam_gece",
+                "label": "Akşam/gece"
+              },
+              {
+                "value": "gün_boyu",
+                "label": "Gün boyu"
+              },
+              {
+                "value": "belirli_bir_zaman_yok",
+                "label": "Belirli bir zaman yok"
+              }
+            ]
+          },
+          {
+            "id": "q5",
+            "type": "single_select",
+            "label": "Yakınlarınız ruh halinizdeki değişikliği fark etti mi?",
+            "required": false,
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "evet",
+                "label": "Evet"
+              },
+              {
+                "value": "bilmiyorum",
+                "label": "Bilmiyorum"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_2",
+        "title": "BÖLÜM 2: UYKU VE ENERJİ",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q6",
+            "type": "single_select",
+            "label": "Uyku düzeninizde değişiklik var mı?",
+            "required": true,
+            "options": [
+              {
+                "value": "değişiklik_yok",
+                "label": "Değişiklik yok"
+              },
+              {
+                "value": "uyuyamıyorum_insomni",
+                "label": "Uyuyamıyorum (insomni)"
+              },
+              {
+                "value": "çok_fazla_uyuyorum_hipersomni",
+                "label": "Çok fazla uyuyorum (hipersomni)"
+              },
+              {
+                "value": "sık_sık_uyanıyorum",
+                "label": "Sık sık uyanıyorum"
+              },
+              {
+                "value": "erken_uyanıyorum",
+                "label": "Erken uyanıyorum"
+              }
+            ]
+          },
+          {
+            "id": "q7",
+            "type": "scale",
+            "label": "Günlük enerji seviyeniz",
+            "required": true,
+            "placeholder": "1 = Hiç enerjim yok, 10 = Çok enerjik",
+            "validation": { "min": 1, "max": 10 }
+          },
+          {
+            "id": "q8",
+            "type": "single_select",
+            "label": "Yorgunluk/bitkinlik ne kadar süredir devam ediyor?",
+            "required": true,
+            "options": [
+              {
+                "value": "son_1_hafta",
+                "label": "Son 1 hafta"
+              },
+              {
+                "value": "son_1_ay",
+                "label": "Son 1 ay"
+              },
+              {
+                "value": "son_3_ay",
+                "label": "Son 3 ay"
+              },
+              {
+                "value": "3_aydan_fazla",
+                "label": "3 aydan fazla"
+              }
+            ]
+          },
+          {
+            "id": "q9",
+            "type": "single_select",
+            "label": "Sabah yataktan kalkmak güçleşti mi?",
+            "required": true,
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "çoğu_zaman",
+                "label": "Çoğu zaman"
+              },
+              {
+                "value": "her_zaman",
+                "label": "Her zaman"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_3",
+        "title": "BÖLÜM 3: İŞTAH VE FİZİKSEL BELİRTİLER",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q10",
+            "type": "single_select",
+            "label": "İştahınızda değişiklik oldu mu?",
+            "required": true,
+            "options": [
+              {
+                "value": "değişiklik_yok",
+                "label": "Değişiklik yok"
+              },
+              {
+                "value": "i_ştahım_azaldı",
+                "label": "İştahım azaldı"
+              },
+              {
+                "value": "i_ştahım_arttı_aşırı_yeme",
+                "label": "İştahım arttı (aşırı yeme)"
+              },
+              {
+                "value": "düzensiz",
+                "label": "Düzensiz"
+              }
+            ]
+          },
+          {
+            "id": "q11",
+            "type": "single_select",
+            "label": "Son 3 ayda belirgin kilo değişimi oldu mu?",
+            "required": false,
+            "options": [
+              {
+                "value": "değişim_yok",
+                "label": "Değişim yok"
+              },
+              {
+                "value": "kilo_kaybı_3_kg",
+                "label": "Kilo kaybı (3+ kg)"
+              },
+              {
+                "value": "kilo_alımı_3_kg",
+                "label": "Kilo alımı (3+ kg)"
+              }
+            ]
+          },
+          {
+            "id": "q12",
+            "type": "single_select",
+            "label": "Açıklanamayan fiziksel ağrılar (baş ağrısı, kas ağrısı, karın ağrısı)",
+            "required": true,
+            "placeholder": "Somatik belirtiler",
+            "options": [
+              {
+                "value": "yok",
+                "label": "Yok"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "sık_sık",
+                "label": "Sık sık"
+              },
+              {
+                "value": "sürekli",
+                "label": "Sürekli"
+              }
+            ]
+          },
+          {
+            "id": "q13",
+            "type": "single_select",
+            "label": "Cinsel istek/fonksiyonda değişiklik",
+            "required": false,
+            "options": [
+              {
+                "value": "değişiklik_yok",
+                "label": "Değişiklik yok"
+              },
+              {
+                "value": "azaldı",
+                "label": "Azaldı"
+              },
+              {
+                "value": "tamamen_kayboldu",
+                "label": "Tamamen kayboldu"
+              },
+              {
+                "value": "cevaplamak_istemiyorum",
+                "label": "Cevaplamak istemiyorum"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_4",
+        "title": "BÖLÜM 4: BİLİŞSEL BELİRTİLER",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q14",
+            "type": "single_select",
+            "label": "Düşüncelerinizi toplamakta güçlük çekiyor musunuz?",
+            "required": true,
+            "placeholder": "Konsantrasyon güçlüğü",
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "çoğu_zaman",
+                "label": "Çoğu zaman"
+              },
+              {
+                "value": "sürekli",
+                "label": "Sürekli"
+              }
+            ]
+          },
+          {
+            "id": "q15",
+            "type": "single_select",
+            "label": "Karar vermekte zorlanıyor musunuz?",
+            "required": true,
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "çoğu_zaman",
+                "label": "Çoğu zaman"
+              },
+              {
+                "value": "sürekli",
+                "label": "Sürekli"
+              }
+            ]
+          },
+          {
+            "id": "q16",
+            "type": "single_select",
+            "label": "Kendinizi değersiz veya suçlu hissediyor musunuz?",
+            "required": true,
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "sık_sık",
+                "label": "Sık sık"
+              },
+              {
+                "value": "sürekli",
+                "label": "Sürekli"
+              }
+            ]
+          },
+          {
+            "id": "q17",
+            "type": "single_select",
+            "label": "Gelecekle ilgili umutsuzluk hissediyor musunuz?",
+            "required": true,
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "çoğu_zaman",
+                "label": "Çoğu zaman"
+              },
+              {
+                "value": "sürekli",
+                "label": "Sürekli"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_5",
+        "title": "BÖLÜM 5: RİSK DEĞERLENDİRMESİ",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q18",
+            "type": "single_select",
+            "label": "Yaşamaya değmediğini veya ölmenin daha iyi olacağını düşündüğünüz oluyor mu?",
+            "required": true,
+            "placeholder": "⚠️ PHQ-9 madde 9",
+            "options": [
+              {
+                "value": "hiçbir_zaman",
+                "label": "Hiçbir zaman"
+              },
+              {
+                "value": "nadiren",
+                "label": "Nadiren"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "sık_sık",
+                "label": "Sık sık"
+              }
+            ]
+          },
+          {
+            "id": "q19",
+            "type": "single_select",
+            "label": "Kendinize zarar verme düşünceniz var mı?",
+            "required": true,
+            "placeholder": "⚠️ İntihar risk değerlendirmesi",
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "geçmişte_oldu",
+                "label": "Geçmişte oldu"
+              },
+              {
+                "value": "şu_anda_aklıma_geliyor",
+                "label": "Şu anda aklıma geliyor"
+              },
+              {
+                "value": "planım_var",
+                "label": "Planım var"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_6",
+        "title": "BÖLÜM 6: SOSYAL İŞLEVSELLİK",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q20",
+            "type": "single_select",
+            "label": "Sosyal aktivitelerinizde azalma oldu mu?",
+            "required": true,
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "biraz_azaldı",
+                "label": "Biraz azaldı"
+              },
+              {
+                "value": "çok_azaldı",
+                "label": "Çok azaldı"
+              },
+              {
+                "value": "tamamen_çekildim",
+                "label": "Tamamen çekildim"
+              }
+            ]
+          },
+          {
+            "id": "q21",
+            "type": "single_select",
+            "label": "İş/okul performansınız etkilendi mi?",
+            "required": true,
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "biraz_düştü",
+                "label": "Biraz düştü"
+              },
+              {
+                "value": "çok_düştü",
+                "label": "Çok düştü"
+              },
+              {
+                "value": "devamsızlık_işe_gidememe",
+                "label": "Devamsızlık/işe gidememe"
+              }
+            ]
+          },
+          {
+            "id": "q22",
+            "type": "single_select",
+            "label": "Günlük bakımınızı (duş, giyinme, beslenme) ihmal ediyor musunuz?",
+            "required": true,
+            "placeholder": "İşlevsellik göstergesi",
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "sık_sık",
+                "label": "Sık sık"
+              }
+            ]
+          },
+          {
+            "id": "q23",
+            "type": "text_long",
+            "label": "Bu süreçte en çok neyin değişmesini istersiniz?",
+            "required": true,
+            "placeholder": "Terapi hedefi belirleme"
+          }
+        ]
+      }
+    ]
+  }
+}

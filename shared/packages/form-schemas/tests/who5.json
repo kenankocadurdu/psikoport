@@ -1,0 +1,36 @@
+{
+  "code": "WHO5",
+  "title": "WHO-5 İyilik Hali Ölçeği",
+  "description": "Son 2 haftadaki psikolojik iyilik halini değerlendiren 5 maddelik ölçek. Yüksek puan = iyi iyilik hali. WHO (1998).",
+  "formType": "PSYCHOMETRIC",
+  "category": "psychometric",
+  "estimatedMinutes": 2,
+  "schema": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "who5_main",
+        "title": "İyilik Hali",
+        "icon": "smile",
+        "fields": [
+          {"id": "q1", "type": "single_select", "label": "Son 2 hafta boyunca: Kendimi neşeli ve keyifli hissettim", "required": true, "options": [{"value": "5", "label": "Her zaman"}, {"value": "4", "label": "Çoğu zaman"}, {"value": "3", "label": "Geçen zamanın yarısından çoğunda"}, {"value": "2", "label": "Geçen zamanın yarısından azında"}, {"value": "1", "label": "Bazen"}, {"value": "0", "label": "Hiçbir zaman"}]},
+          {"id": "q2", "type": "single_select", "label": "Kendimi sakin ve gevşemiş hissettim", "required": true, "options": [{"value": "5", "label": "Her zaman"}, {"value": "4", "label": "Çoğu zaman"}, {"value": "3", "label": "Geçen zamanın yarısından çoğunda"}, {"value": "2", "label": "Geçen zamanın yarısından azında"}, {"value": "1", "label": "Bazen"}, {"value": "0", "label": "Hiçbir zaman"}]},
+          {"id": "q3", "type": "single_select", "label": "Kendimi aktif ve dinç hissettim", "required": true, "options": [{"value": "5", "label": "Her zaman"}, {"value": "4", "label": "Çoğu zaman"}, {"value": "3", "label": "Geçen zamanın yarısından çoğunda"}, {"value": "2", "label": "Geçen zamanın yarısından azında"}, {"value": "1", "label": "Bazen"}, {"value": "0", "label": "Hiçbir zaman"}]},
+          {"id": "q4", "type": "single_select", "label": "Sabahları kendimi taze ve dinlenmiş hissederek uyandım", "required": true, "options": [{"value": "5", "label": "Her zaman"}, {"value": "4", "label": "Çoğu zaman"}, {"value": "3", "label": "Geçen zamanın yarısından çoğunda"}, {"value": "2", "label": "Geçen zamanın yarısından azında"}, {"value": "1", "label": "Bazen"}, {"value": "0", "label": "Hiçbir zaman"}]},
+          {"id": "q5", "type": "single_select", "label": "Günlük yaşantım beni ilgilendiren şeylerle dolu", "required": true, "options": [{"value": "5", "label": "Her zaman"}, {"value": "4", "label": "Çoğu zaman"}, {"value": "3", "label": "Geçen zamanın yarısından çoğunda"}, {"value": "2", "label": "Geçen zamanın yarısından azında"}, {"value": "1", "label": "Bazen"}, {"value": "0", "label": "Hiçbir zaman"}]}
+        ]
+      }
+    ]
+  },
+  "scoringConfig": {
+    "type": "sum",
+    "response_scale": {"0": "Hiçbir zaman", "1": "Bazen", "2": "Geçen zamanın yarısından azında", "3": "Geçen zamanın yarısından çoğunda", "4": "Çoğu zaman", "5": "Her zaman"},
+    "total_score": {"min": 0, "max": 25, "calculation": "SUM(all_items)"},
+    "severity_levels": [
+      {"range": [0, 12], "level": "poor", "label": "Düşük iyilik hali"},
+      {"range": [13, 18], "level": "below_average", "label": "Orta düzeyin altı"},
+      {"range": [19, 22], "level": "average", "label": "Orta iyilik hali"},
+      {"range": [23, 25], "level": "good", "label": "İyi iyilik hali"}
+    ]
+  }
+}

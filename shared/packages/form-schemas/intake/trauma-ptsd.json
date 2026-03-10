@@ -1,0 +1,596 @@
+{
+  "code": "INTAKE_TRAUMA_PTSD",
+  "title": "Travma Ek Formu",
+  "description": "Travmatik yaşantı veya TSSB şikayeti olan danışanlar için.",
+  "formType": "INTAKE_ADDON",
+  "category": "intake",
+  "estimatedMinutes": 10.5,
+  "schema": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "section_1",
+        "title": "BÖLÜM 1: TRAVMA DENEYİMİ",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q1",
+            "type": "multi_select",
+            "label": "Aşağıdaki deneyimlerden hangilerini yaşadınız?",
+            "required": true,
+            "placeholder": "⚠️ Birden fazla seçilebilir. \"Paylaşmak istemiyorum\" seçeneği mutlaka olmalı",
+            "options": [
+              {
+                "value": "fiziksel_şiddet_istismar",
+                "label": "Fiziksel şiddet/istismar"
+              },
+              {
+                "value": "cinsel_şiddet_istismar",
+                "label": "Cinsel şiddet/istismar"
+              },
+              {
+                "value": "duygusal_istismar_ihmal",
+                "label": "Duygusal istismar/ihmal"
+              },
+              {
+                "value": "trafik_kazası",
+                "label": "Trafik kazası"
+              },
+              {
+                "value": "doğal_afet_deprem_sel_vb",
+                "label": "Doğal afet (deprem, sel vb.)"
+              },
+              {
+                "value": "savaş_terör_olayı",
+                "label": "Savaş/terör olayı"
+              },
+              {
+                "value": "sevilen_birinin_ani_travmatik_kaybı",
+                "label": "Sevilen birinin ani/travmatik kaybı"
+              },
+              {
+                "value": "ciddi_hastalık_ameliyat",
+                "label": "Ciddi hastalık/ameliyat"
+              },
+              {
+                "value": "i_ş_kazası",
+                "label": "İş kazası"
+              },
+              {
+                "value": "zorbalık_mobbing_bullying",
+                "label": "Zorbalık (mobbing/bullying)"
+              },
+              {
+                "value": "tanık_olma_başkasının_yaşadığı",
+                "label": "Tanık olma (başkasının yaşadığı)"
+              },
+              {
+                "value": "çocukluk_ihmal_istismarı",
+                "label": "Çocukluk ihmal/istismarı"
+              },
+              {
+                "value": "diğer",
+                "label": "Diğer"
+              },
+              {
+                "value": "paylaşmak_istemiyorum",
+                "label": "Paylaşmak istemiyorum"
+              }
+            ]
+          },
+          {
+            "id": "q2",
+            "type": "single_select",
+            "label": "En çok etkileyen olay yaklaşık ne zaman gerçekleşti?",
+            "required": true,
+            "options": [
+              {
+                "value": "son_1_ay",
+                "label": "Son 1 ay"
+              },
+              {
+                "value": "son_1_3_ay",
+                "label": "Son 1-3 ay"
+              },
+              {
+                "value": "son_3_12_ay",
+                "label": "Son 3-12 ay"
+              },
+              {
+                "value": "1_5_yıl_önce",
+                "label": "1-5 yıl önce"
+              },
+              {
+                "value": "5_yıl_önce",
+                "label": "5+ yıl önce"
+              },
+              {
+                "value": "çocuklukta",
+                "label": "Çocuklukta"
+              },
+              {
+                "value": "birden_fazla_dönemde",
+                "label": "Birden fazla dönemde"
+              }
+            ]
+          },
+          {
+            "id": "q3",
+            "type": "single_select",
+            "label": "Travmatik olay bir kez mi yoksa tekrar eden mi?",
+            "required": true,
+            "placeholder": "Tip I vs Tip II travma",
+            "options": [
+              {
+                "value": "tek_seferlik",
+                "label": "Tek seferlik"
+              },
+              {
+                "value": "tekrarlayan_süregelen",
+                "label": "Tekrarlayan/süregelen"
+              },
+              {
+                "value": "birden_fazla_farklı_olay",
+                "label": "Birden fazla farklı olay"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_2",
+        "title": "BÖLÜM 2: YENİDEN YAŞAMA BELİRTİLERİ",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q4",
+            "type": "single_select",
+            "label": "Olayı istemeden hatırlıyor musunuz (flashback)?",
+            "required": true,
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "haftada_1_2",
+                "label": "Haftada 1-2"
+              },
+              {
+                "value": "haftada_birçok_kez",
+                "label": "Haftada birçok kez"
+              },
+              {
+                "value": "neredeyse_her_gün",
+                "label": "Neredeyse her gün"
+              }
+            ]
+          },
+          {
+            "id": "q5",
+            "type": "single_select",
+            "label": "Olayla ilgili kâbuslar görüyor musunuz?",
+            "required": true,
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "ayda_birkaç_kez",
+                "label": "Ayda birkaç kez"
+              },
+              {
+                "value": "haftada_birkaç_kez",
+                "label": "Haftada birkaç kez"
+              },
+              {
+                "value": "neredeyse_her_gece",
+                "label": "Neredeyse her gece"
+              }
+            ]
+          },
+          {
+            "id": "q6",
+            "type": "single_select",
+            "label": "Olayı hatırlatan şeyler karşısında yoğun sıkıntı duyuyor musunuz?",
+            "required": true,
+            "placeholder": "Tetikleyiciler",
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "sık_sık",
+                "label": "Sık sık"
+              },
+              {
+                "value": "her_zaman",
+                "label": "Her zaman"
+              }
+            ]
+          },
+          {
+            "id": "q7",
+            "type": "single_select",
+            "label": "Hatırlatıcılar karşısında fiziksel tepkiler (çarpıntı, terleme, titreme)?",
+            "required": true,
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "sık_sık",
+                "label": "Sık sık"
+              },
+              {
+                "value": "her_zaman",
+                "label": "Her zaman"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_3",
+        "title": "BÖLÜM 3: KAÇINMA VE UYUŞUKLUK",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q8",
+            "type": "single_select",
+            "label": "Olayı hatırlatan yerlerden, kişilerden veya durumlardan kaçınıyor musunuz?",
+            "required": true,
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "çoğu_zaman",
+                "label": "Çoğu zaman"
+              },
+              {
+                "value": "sürekli",
+                "label": "Sürekli"
+              }
+            ]
+          },
+          {
+            "id": "q9",
+            "type": "single_select",
+            "label": "Olayla ilgili düşünce veya duygulardan kaçınıyor musunuz?",
+            "required": true,
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "çoğu_zaman",
+                "label": "Çoğu zaman"
+              },
+              {
+                "value": "sürekli",
+                "label": "Sürekli"
+              }
+            ]
+          },
+          {
+            "id": "q10",
+            "type": "single_select",
+            "label": "Duygusal uyuşukluk/hissizlik yaşıyor musunuz?",
+            "required": true,
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "çoğu_zaman",
+                "label": "Çoğu zaman"
+              },
+              {
+                "value": "sürekli",
+                "label": "Sürekli"
+              }
+            ]
+          },
+          {
+            "id": "q11",
+            "type": "single_select",
+            "label": "Olayın bazı bölümlerini hatırlayamıyor musunuz?",
+            "required": true,
+            "placeholder": "Dissosiyatif amnezi",
+            "options": [
+              {
+                "value": "hayır_hepsini_hatırlıyorum",
+                "label": "Hayır, hepsini hatırlıyorum"
+              },
+              {
+                "value": "bazı_kısımları_hatırlamıyorum",
+                "label": "Bazı kısımları hatırlamıyorum"
+              },
+              {
+                "value": "çoğunu_hatırlamıyorum",
+                "label": "Çoğunu hatırlamıyorum"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_4",
+        "title": "BÖLÜM 4: AŞIRI UYARILMA",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q12",
+            "type": "single_select",
+            "label": "Kolayca irkilme/ürperme yaşıyor musunuz?",
+            "required": true,
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "sık_sık",
+                "label": "Sık sık"
+              },
+              {
+                "value": "sürekli",
+                "label": "Sürekli"
+              }
+            ]
+          },
+          {
+            "id": "q13",
+            "type": "single_select",
+            "label": "Sürekli tetikte/tehlike beklentisinde misiniz?",
+            "required": true,
+            "placeholder": "Hipervigilans",
+            "options": [
+              {
+                "value": "hiç",
+                "label": "Hiç"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "sık_sık",
+                "label": "Sık sık"
+              },
+              {
+                "value": "sürekli",
+                "label": "Sürekli"
+              }
+            ]
+          },
+          {
+            "id": "q14",
+            "type": "single_select",
+            "label": "Uyku güçlüğü (uykuya dalma/sürdürme)",
+            "required": true,
+            "options": [
+              {
+                "value": "yok",
+                "label": "Yok"
+              },
+              {
+                "value": "hafif",
+                "label": "Hafif"
+              },
+              {
+                "value": "orta",
+                "label": "Orta"
+              },
+              {
+                "value": "ciddi",
+                "label": "Ciddi"
+              }
+            ]
+          },
+          {
+            "id": "q15",
+            "type": "single_select",
+            "label": "Öfke patlamaları veya sinirlilik",
+            "required": true,
+            "options": [
+              {
+                "value": "yok",
+                "label": "Yok"
+              },
+              {
+                "value": "bazen",
+                "label": "Bazen"
+              },
+              {
+                "value": "sık_sık",
+                "label": "Sık sık"
+              },
+              {
+                "value": "sürekli",
+                "label": "Sürekli"
+              }
+            ]
+          },
+          {
+            "id": "q16",
+            "type": "single_select",
+            "label": "Konsantrasyon güçlüğü",
+            "required": true,
+            "options": [
+              {
+                "value": "yok",
+                "label": "Yok"
+              },
+              {
+                "value": "hafif",
+                "label": "Hafif"
+              },
+              {
+                "value": "orta",
+                "label": "Orta"
+              },
+              {
+                "value": "ciddi",
+                "label": "Ciddi"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_5",
+        "title": "BÖLÜM 5: GÜVENLİK VE DESTEK",
+        "icon": "file-text",
+        "fields": [
+          {
+            "id": "q17",
+            "type": "single_select",
+            "label": "Şu anda güvende hissediyor musunuz?",
+            "required": true,
+            "placeholder": "⚠️ Kritik soru",
+            "options": [
+              {
+                "value": "evet",
+                "label": "Evet"
+              },
+              {
+                "value": "çoğunlukla",
+                "label": "Çoğunlukla"
+              },
+              {
+                "value": "bazen_güvende_hissetmiyorum",
+                "label": "Bazen güvende hissetmiyorum"
+              },
+              {
+                "value": "hayır_güvende_değilim",
+                "label": "Hayır, güvende değilim"
+              }
+            ]
+          },
+          {
+            "id": "q18",
+            "type": "single_select",
+            "label": "Travma sizi tehdit eden kişi/kişilerle hâlâ temas halinde misiniz?",
+            "required": true,
+            "options": [
+              {
+                "value": "hayır",
+                "label": "Hayır"
+              },
+              {
+                "value": "evet_zorunlu_temas",
+                "label": "Evet, zorunlu temas"
+              },
+              {
+                "value": "evet_gönüllü_temas",
+                "label": "Evet, gönüllü temas"
+              },
+              {
+                "value": "geçerli_değil",
+                "label": "Geçerli değil"
+              }
+            ]
+          },
+          {
+            "id": "q19",
+            "type": "single_select",
+            "label": "Sizi destekleyen biri var mı?",
+            "required": true,
+            "options": [
+              {
+                "value": "evet_güçlü_destek_ağım_var",
+                "label": "Evet, güçlü destek ağım var"
+              },
+              {
+                "value": "kısmen",
+                "label": "Kısmen"
+              },
+              {
+                "value": "hayır_yalnızım",
+                "label": "Hayır, yalnızım"
+              }
+            ]
+          },
+          {
+            "id": "q20",
+            "type": "multi_select",
+            "label": "Başa çıkmak için neler yapıyorsunuz?",
+            "required": false,
+            "options": [
+              {
+                "value": "konuşma_yakınlarla",
+                "label": "Konuşma (yakınlarla)"
+              },
+              {
+                "value": "kaçınma",
+                "label": "Kaçınma"
+              },
+              {
+                "value": "alkol_madde",
+                "label": "Alkol/madde"
+              },
+              {
+                "value": "kendini_meşgul_etme",
+                "label": "Kendini meşgul etme"
+              },
+              {
+                "value": "egzersiz",
+                "label": "Egzersiz"
+              },
+              {
+                "value": "i_badet_meditasyon",
+                "label": "İbadet/meditasyon"
+              },
+              {
+                "value": "hiçbir_şey",
+                "label": "Hiçbir şey"
+              },
+              {
+                "value": "diğer",
+                "label": "Diğer"
+              }
+            ]
+          },
+          {
+            "id": "q21",
+            "type": "text_long",
+            "label": "Terapi sürecinden beklentiniz",
+            "required": true
+          }
+        ]
+      }
+    ]
+  }
+}
