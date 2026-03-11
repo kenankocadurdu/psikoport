@@ -18,6 +18,7 @@ export function TipTapEditor({
   className,
 }: TipTapEditorProps) {
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [StarterKit],
     content,
     editorProps: {
