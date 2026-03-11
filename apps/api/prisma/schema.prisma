@@ -16,7 +16,7 @@ datasource db {
 enum TenantPlan {
   FREE
   PRO
-  ENTERPRISE
+  PROPLUS
 }
 
 enum VideoProvider {
@@ -80,6 +80,8 @@ model Tenant {
   formSubmissions    FormSubmission[]
   psychologistProfiles PsychologistProfile[]
   blogPosts          BlogPost[]
+  subscriptions      TenantSubscription[]
+  monthlyBudgets     MonthlySessionBudget[]
 }
 
 model User {
@@ -572,6 +574,56 @@ model PaymentSettings {
   @@unique([tenantId, psychologistId])
   @@index([tenantId])
   @@index([psychologistId])
+}
+
+// --- Subscription: Plan Configs & Session Budgets ---
+
+// Admin tarafından ayarlanabilen plan parametreleri (geçmiş korunur)
+model PlanConfig {
+  id                  String     @id @default(cuid())
+  planCode            TenantPlan
+  monthlySessionQuota Int        // aylık seans hakkı
+  testsPerSession     Int        @default(10)  // seans başına test hakkı
+  monthlyPrice        Int        @default(0)   // aylık fiyat (TL)
+  trialDays           Int        @default(0)   // deneme süresi (gün)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  createdBy           String?    // admin user id
+
+  @@index([planCode, createdAt])
+}
+
+// Tenant'ın satın alma anındaki plan snapshot'ı (değişmez)
+model TenantSubscription {
+  id                  String     @id @default(cuid())
+  tenantId            String
+  planCode            TenantPlan
+  monthlySessionQuota Int        // satın alma anında kilitlenen kota
+  testsPerSession     Int        @default(10)
+  startDate           DateTime   @default(now())
+  endDate             DateTime?  // null = hâlâ aktif
+  createdAt           DateTime   @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, startDate])
+}
+
+// Aylık seans bütçesi (ay başında sıfırlanır, devretmez)
+model MonthlySessionBudget {
+  id          String   @id @default(cuid())
+  tenantId    String
+  year        Int
+  month       Int      // 1-12
+  totalQuota  Int      // bu ay için toplam hak
+  usedCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, year, month])
+  @@index([tenantId])
 }
 
 // --- Legal: Audit Logs (WORM — Write Once Read Many) ---

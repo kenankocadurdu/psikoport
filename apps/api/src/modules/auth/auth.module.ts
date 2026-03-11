@@ -5,12 +5,14 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from '../../database/prisma.module';
 import { StorageModule } from '../common/services/storage.module';
+import { SubscriptionModule } from '../subscriptions/subscription.module';
 
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     PrismaModule,
     StorageModule,
+    SubscriptionModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

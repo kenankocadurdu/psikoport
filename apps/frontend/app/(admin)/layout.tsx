@@ -10,7 +10,7 @@ import {
   Users,
   LogOut,
   ShieldCheck,
-  ChevronRight,
+  Settings2,
   Loader2,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
@@ -26,6 +26,7 @@ const navItems = [
   { href: "/admin/tenants", label: "Tenantlar", icon: Building2, exact: false },
   { href: "/admin/licenses", label: "Lisans Onayları", icon: FileCheck, exact: false },
   { href: "/admin/users", label: "Kullanıcılar", icon: Users, exact: false },
+  { href: "/admin/plan-config", label: "Plan Ayarları", icon: Settings2, exact: false },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

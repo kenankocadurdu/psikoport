@@ -46,7 +46,7 @@ async function main() {
         id: 'system',
         name: 'Psikoport System',
         slug: 'psikoport-system',
-        plan: 'ENTERPRISE',
+        plan: 'PROPLUS',
         maxClients: 0,
         isActive: true,
       },

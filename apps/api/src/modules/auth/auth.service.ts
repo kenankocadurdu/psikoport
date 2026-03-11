@@ -14,6 +14,7 @@ import { UserRole } from 'prisma-client';
 import { RegisterDto } from './dto/register.dto';
 import { NotificationService } from '../common/services/notification.service';
 import { StorageService } from '../common/services/storage.service';
+import { SubscriptionService } from '../subscriptions/subscription.service';
 
 /** Decoded JWT payload from Auth0 */
 interface Auth0TokenPayload {
@@ -33,6 +34,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly notification: NotificationService,
     private readonly storage: StorageService,
+    private readonly subscriptionService: SubscriptionService,
   ) {
     const domain = this.configService.get<string>('AUTH0_DOMAIN');
     const clientId = this.configService.get<string>('AUTH0_M2M_CLIENT_ID');
@@ -153,7 +155,7 @@ export class AuthService {
     }
 
     const slug = this.generateSlug(dto.email);
-    const planMap = { free: 'FREE', pro: 'PRO', enterprise: 'ENTERPRISE' } as const;
+    const planMap = { free: 'FREE', pro: 'PRO', proplus: 'PROPLUS' } as const;
     const tenantPlan = planMap[dto.plan ?? 'free'];
     const tenant = await this.prisma.tenant.create({
       data: {
@@ -183,6 +185,9 @@ export class AuthService {
         },
       },
     );
+
+    // Abonelik snapshot'ı ve ilk aylık bütçeyi oluştur
+    await this.subscriptionService.createInitialSubscription(tenant.id, tenantPlan);
 
     return {
       message:

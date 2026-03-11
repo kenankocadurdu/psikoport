@@ -37,7 +37,7 @@ const LICENSE_VARIANTS: Record<
 const PLAN_LABELS: Record<string, string> = {
   FREE: "Ücretsiz",
   PRO: "Pro",
-  ENTERPRISE: "Kurumsal",
+  PROPLUS: "Pro Plus",
 };
 
 export default function AdminUsersPage() {

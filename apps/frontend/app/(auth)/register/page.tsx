@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,18 +18,27 @@ import { Logo } from "@/components/logo";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-type PlanCode = "free" | "pro" | "enterprise";
+type PlanCode = "FREE" | "PRO" | "PROPLUS";
 type DetailTab = "account" | "payment";
 type BillingPeriod = "monthly" | "yearly";
 
-const PRO_PRICE = { monthly: 999, yearly: 799 };
+interface PlanConfig {
+  planCode: PlanCode;
+  monthlySessionQuota: number;
+  monthlyPrice: number;
+  trialDays: number;
+}
 
-const PLANS = [
-  {
-    code: "free" as PlanCode,
+const PLAN_DISPLAY: Record<PlanCode, {
+  name: string;
+  tagline: string;
+  sessionLabel: string;
+  features: string[];
+  badge?: string;
+}> = {
+  FREE: {
     name: "Ücretsiz Deneme",
-    tagline: "7 gün • Kredi kartı gerekmez",
-    sessions: "25 seans",
+    tagline: "Kredi kartı gerekmez",
     sessionLabel: "deneme süresi boyunca",
     features: [
       "Randevu planlama",
@@ -37,11 +47,23 @@ const PLANS = [
       "10 psikometrik test",
     ],
   },
-  {
-    code: "pro" as PlanCode,
+  PRO: {
     name: "Pro",
     tagline: "Pratiğinizi tam kapasiteyle büyütün",
-    sessions: "250 seans",
+    sessionLabel: "her ay",
+    badge: "Popüler",
+    features: [
+      "Randevu planlama",
+      "Gelişmiş Seans Notları ve Araçları",
+      "Gelişmiş gelir takibi",
+      "10 psikometrik test",
+      "Seans hatırlatma bildirimleri",
+      "Ticket sistemi ile hızlı destek (08:00 - 20:00)",
+    ],
+  },
+  PROPLUS: {
+    name: "Pro Plus",
+    tagline: "Yüksek hacimli pratik için",
     sessionLabel: "her ay",
     features: [
       "Randevu planlama",
@@ -49,14 +71,14 @@ const PLANS = [
       "Gelişmiş gelir takibi",
       "10 psikometrik test",
       "Seans hatırlatma bildirimleri",
+      "Öncelikli destek (08:00 - 22:00)",
     ],
-    extras: ["Ticket sistemi ile hızlı destek (08:00 - 20:00)"],
   },
-];
+};
 
 const registerSchema = z.object({
   fullName: z.string().min(2, "Ad soyad en az 2 karakter olmalı").max(100),
-  email: z.string().email({ message: "Geçerli bir e-posta adresi girin" }),
+  email: z.string().email("Geçerli bir e-posta adresi girin"),
   password: z.string().min(8, "Şifre en az 8 karakter olmalı"),
   confirmPassword: z.string(),
   phone: z.string().max(20).optional().or(z.literal("")),
@@ -79,10 +101,14 @@ function formatExpiry(value: string) {
   return v;
 }
 
+function annualPrice(monthly: number) {
+  return Math.round(monthly * 12 * 0.8);
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<"plan" | "details">("plan");
-  const [selectedPlan, setSelectedPlan] = useState<PlanCode>("pro");
+  const [selectedPlan, setSelectedPlan] = useState<PlanCode>("PRO");
   const [loadingMsg, setLoadingMsg] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("account");
   const [accountUnlocked, setAccountUnlocked] = useState(false);
@@ -93,15 +119,33 @@ export default function RegisterPage() {
   const [expiry, setExpiry] = useState("");
   const [cvc, setCvc] = useState("");
 
+  const { data: planConfigs } = useQuery<PlanConfig[]>({
+    queryKey: ["public", "plans"],
+    queryFn: () => fetch(`${API_URL}/plans`).then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const form = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
     defaultValues: { fullName: "", email: "", password: "", confirmPassword: "", phone: "" },
   });
 
-  const plan = PLANS.find((p) => p.code === selectedPlan)!;
-  const isPaid = selectedPlan !== "free";
+  const getConfig = (code: PlanCode): PlanConfig =>
+    planConfigs?.find((p) => p.planCode === code) ?? {
+      planCode: code,
+      monthlySessionQuota: code === "FREE" ? 25 : code === "PRO" ? 250 : 500,
+      monthlyPrice: code === "FREE" ? 0 : code === "PRO" ? 999 : 1200,
+      trialDays: code === "FREE" ? 7 : 0,
+    };
 
-  /* Hesap alanlarını doğrulayıp ödeme tabına geç */
+  const display = PLAN_DISPLAY[selectedPlan];
+  const config = getConfig(selectedPlan);
+  const isPaid = selectedPlan !== "FREE";
+  const currentPrice =
+    billingPeriod === "yearly" && isPaid
+      ? Math.round(annualPrice(config.monthlyPrice) / 12)
+      : config.monthlyPrice;
+
   const handleGoToPayment = async () => {
     const valid = await form.trigger(["fullName", "email", "password", "confirmPassword"]);
     if (!valid) return;
@@ -109,7 +153,6 @@ export default function RegisterPage() {
     setDetailTab("payment");
   };
 
-  /* Manuel submit — form element yok, implicit submit yok */
   const handleSubmit = async () => {
     const valid = await form.trigger();
     if (!valid) return;
@@ -144,7 +187,7 @@ export default function RegisterPage() {
           email: values.email,
           password: values.password,
           phone: values.phone || undefined,
-          plan: selectedPlan,
+          plan: selectedPlan.toLowerCase(),
         }),
       });
 
@@ -178,8 +221,9 @@ export default function RegisterPage() {
 
   /* ── Step 1: Plan Seçimi ─────────────────────────────────── */
   if (step === "plan") {
+    const planCodes: PlanCode[] = ["FREE", "PRO", "PROPLUS"];
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-6 px-4 pt-6 pb-12">
+      <div className="mx-auto w-full max-w-4xl space-y-6 px-4 pt-6 pb-12">
         <div className="flex flex-col items-center gap-3">
           <Logo size="lg" />
           <p className="text-sm text-muted-foreground">
@@ -187,7 +231,7 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Fatura dönemi toggle — sadece Pro için anlam taşır */}
+        {/* Fatura dönemi toggle */}
         <div className="flex justify-center">
           <div className="flex rounded-xl border bg-muted/40 p-1 gap-1">
             <button
@@ -218,23 +262,30 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {PLANS.map((p) => {
-            const price = p.code === "pro" ? PRO_PRICE[billingPeriod] : 0;
-            const isSelected = selectedPlan === p.code;
+        <div className="grid gap-4 sm:grid-cols-3">
+          {planCodes.map((code) => {
+            const cfg = getConfig(code);
+            const disp = PLAN_DISPLAY[code];
+            const isSelected = selectedPlan === code;
+            const isPaidPlan = code !== "FREE";
+            const displayPrice =
+              billingPeriod === "yearly" && isPaidPlan
+                ? Math.round(annualPrice(cfg.monthlyPrice) / 12)
+                : cfg.monthlyPrice;
+
             return (
               <button
-                key={p.code}
+                key={code}
                 type="button"
-                onClick={() => setSelectedPlan(p.code)}
+                onClick={() => setSelectedPlan(code)}
                 className={cn(
                   "relative flex cursor-pointer flex-col rounded-xl border-2 p-5 text-left transition-colors hover:border-primary/60",
                   isSelected ? "border-primary bg-primary/5" : "border-border bg-background",
                 )}
               >
-                {p.code === "pro" && (
+                {disp.badge && (
                   <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap">
-                    Popüler
+                    {disp.badge}
                   </Badge>
                 )}
                 {isSelected && (
@@ -245,53 +296,38 @@ export default function RegisterPage() {
 
                 {/* Fiyat */}
                 <div className="mb-4">
-                  <div className="font-semibold">{p.name}</div>
+                  <div className="font-semibold">{disp.name}</div>
                   <div className="mt-1 text-2xl font-bold">
-                    {price === 0 ? "Ücretsiz" : (
-                      <>₺{price}<span className="text-sm font-normal text-muted-foreground">/ay</span></>
+                    {cfg.monthlyPrice === 0 ? "Ücretsiz" : (
+                      <>₺{displayPrice}<span className="text-sm font-normal text-muted-foreground">/ay</span></>
                     )}
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {p.code === "pro" && billingPeriod === "yearly"
-                      ? `Yıllık ₺${PRO_PRICE.yearly * 12} faturalandırılır`
-                      : "\u00A0"}
+                    {isPaidPlan && billingPeriod === "yearly"
+                      ? `Yıllık ₺${annualPrice(cfg.monthlyPrice).toLocaleString("tr-TR")} faturalandırılır`
+                      : cfg.trialDays > 0
+                        ? `${cfg.trialDays} gün deneme • Kart gerekmez`
+                        : "\u00A0"}
                   </p>
                 </div>
 
                 {/* Seans kapasitesi */}
                 <div className="mb-3 rounded-lg bg-primary/8 px-3 py-2">
-                  <span className="text-lg font-bold text-primary">{p.sessions}</span>
-                  <span className="ml-1.5 text-xs text-muted-foreground">{p.sessionLabel}</span>
+                  <span className="text-lg font-bold text-primary">{cfg.monthlySessionQuota} seans</span>
+                  <span className="ml-1.5 text-xs text-muted-foreground">{disp.sessionLabel}</span>
                 </div>
 
-                {/* Her seans içerir */}
                 <p className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Her seans içerir
+                  Özellikler
                 </p>
                 <ul className="space-y-1.5 text-sm text-muted-foreground">
-                  {p.features.map((f) => (
+                  {disp.features.map((f) => (
                     <li key={f} className="flex items-center gap-1.5">
                       <Check className="size-3.5 shrink-0 text-primary" />
                       {f}
                     </li>
                   ))}
                 </ul>
-
-                {"extras" in p && p.extras.length > 0 && (
-                  <>
-                    <p className="mt-3 mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Ayrıca
-                    </p>
-                    <ul className="space-y-1.5 text-sm text-muted-foreground">
-                      {p.extras.map((f) => (
-                        <li key={f} className="flex items-center gap-1.5">
-                          <Check className="size-3.5 shrink-0 text-secondary" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
               </button>
             );
           })}
@@ -320,10 +356,10 @@ export default function RegisterPage() {
       <div className="flex items-center justify-between">
         <Logo size="md" />
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-medium">{plan.name}</span>
+          <span className="font-medium">{display.name}</span>
           {isPaid ? (
             <Badge variant="secondary">
-              ₺{PRO_PRICE[billingPeriod]}/ay · {billingPeriod === "yearly" ? "Yıllık" : "Aylık"}
+              ₺{currentPrice}/ay · {billingPeriod === "yearly" ? "Yıllık" : "Aylık"}
             </Badge>
           ) : (
             <Badge variant="secondary">Ücretsiz</Badge>
@@ -517,16 +553,17 @@ export default function RegisterPage() {
         <div className="rounded-xl bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
           {isPaid ? (
             <>
-              <span className="font-medium text-foreground">{plan.name}</span> planı —{" "}
+              <span className="font-medium text-foreground">{display.name}</span> planı —{" "}
               {billingPeriod === "yearly" ? (
-                <>yıllık <span className="font-medium text-foreground">₺{PRO_PRICE.yearly * 12}</span> ücretlendirileceksiniz.</>
+                <>yıllık <span className="font-medium text-foreground">₺{annualPrice(config.monthlyPrice).toLocaleString("tr-TR")}</span> ücretlendirileceksiniz.</>
               ) : (
-                <>aylık <span className="font-medium text-foreground">₺{PRO_PRICE.monthly}</span> ücretlendirileceksiniz.</>
+                <>aylık <span className="font-medium text-foreground">₺{config.monthlyPrice.toLocaleString("tr-TR")}</span> ücretlendirileceksiniz.</>
               )}
             </>
           ) : (
             <>
-              <span className="font-medium text-foreground">Ücretsiz</span> plan — ödeme
+              <span className="font-medium text-foreground">Ücretsiz</span> plan —{" "}
+              {config.trialDays > 0 ? `${config.trialDays} günlük deneme, ` : ""}ödeme
               gerekmez. Dilediğiniz zaman yükseltebilirsiniz.
             </>
           )}

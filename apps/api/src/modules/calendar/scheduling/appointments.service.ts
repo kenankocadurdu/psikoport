@@ -23,6 +23,7 @@ import {
 import type { PaginatedResponse } from '../../legal/audit-log.service';
 import type { AppointmentNotificationJobData } from './types';
 import { PaymentsService } from '../../finance/payments.service';
+import { SubscriptionService } from '../../subscriptions/subscription.service';
 
 const SLOT_LOCK_TTL = 300; // 5 minutes
 const SLOT_LOCK_PREFIX = 'appointment:slot:';
@@ -40,6 +41,7 @@ export class AppointmentsService {
     private readonly calendarSync: CalendarSyncService,
     private readonly videoService: VideoService,
     private readonly paymentsService: PaymentsService,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   private lockKey(psychologistId: string, startTime: Date): string {
@@ -365,6 +367,8 @@ export class AppointmentsService {
       },
     });
 
+    await this.subscriptionService.consumeSession(tenantId);
+
     await this.notifQueue.add('cancelled', {
       appointmentId: id,
       type: 'cancelled',
@@ -396,6 +400,8 @@ export class AppointmentsService {
       existing.tenantId,
     );
 
+    await this.subscriptionService.consumeSession(tenantId);
+
     return { id: appointment.id, status: appointment.status };
   }
 
@@ -409,6 +415,8 @@ export class AppointmentsService {
       where: { id },
       data: { status: AppointmentStatus.NO_SHOW },
     });
+
+    await this.subscriptionService.consumeSession(tenantId);
 
     return { id: appointment.id, status: appointment.status };
   }

@@ -1,0 +1,225 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { TenantPlan } from 'prisma-client';
+import { PrismaService } from '../../database/prisma.service';
+
+const DEFAULT_QUOTAS: Record<TenantPlan, number> = {
+  FREE: 25,
+  PRO: 250,
+  PROPLUS: 500,
+};
+
+const DEFAULT_PRICES: Record<TenantPlan, number> = {
+  FREE: 0,
+  PRO: 999,
+  PROPLUS: 1200,
+};
+
+const DEFAULT_TRIAL_DAYS: Record<TenantPlan, number> = {
+  FREE: 7,
+  PRO: 0,
+  PROPLUS: 0,
+};
+
+const DEFAULT_TESTS_PER_SESSION = 10;
+
+@Injectable()
+export class SubscriptionService {
+  private readonly logger = new Logger(SubscriptionService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  /** Belirli plan için en güncel PlanConfig'i döndürür. Yoksa varsayılanları kullanır. */
+  async getCurrentPlanConfig(
+    planCode: TenantPlan,
+  ): Promise<{ monthlySessionQuota: number; testsPerSession: number }> {
+    const config = await this.prisma.planConfig.findFirst({
+      where: { planCode },
+      orderBy: { createdAt: 'desc' },
+    });
+    return {
+      monthlySessionQuota:
+        config?.monthlySessionQuota ?? DEFAULT_QUOTAS[planCode],
+      testsPerSession:
+        config?.testsPerSession ?? DEFAULT_TESTS_PER_SESSION,
+    };
+  }
+
+  /** Tüm planların güncel config'lerini döndürür. */
+  async getAllPlanConfigs(): Promise<
+    {
+      planCode: TenantPlan;
+      monthlySessionQuota: number;
+      testsPerSession: number;
+      monthlyPrice: number;
+      trialDays: number;
+      updatedAt: Date;
+    }[]
+  > {
+    const plans: TenantPlan[] = ['FREE', 'PRO', 'PROPLUS'];
+    return Promise.all(
+      plans.map(async (planCode) => {
+        const config = await this.prisma.planConfig.findFirst({
+          where: { planCode },
+          orderBy: { createdAt: 'desc' },
+        });
+        return {
+          planCode,
+          monthlySessionQuota: config?.monthlySessionQuota ?? DEFAULT_QUOTAS[planCode],
+          testsPerSession: config?.testsPerSession ?? DEFAULT_TESTS_PER_SESSION,
+          monthlyPrice: config?.monthlyPrice ?? DEFAULT_PRICES[planCode],
+          trialDays: config?.trialDays ?? DEFAULT_TRIAL_DAYS[planCode],
+          updatedAt: config?.updatedAt ?? new Date(0),
+        };
+      }),
+    );
+  }
+
+  /** Yeni PlanConfig kaydı oluşturur (geçmiş korunur). */
+  async upsertPlanConfig(
+    planCode: TenantPlan,
+    monthlySessionQuota: number,
+    testsPerSession: number,
+    monthlyPrice: number,
+    trialDays: number,
+    createdBy?: string,
+  ) {
+    return this.prisma.planConfig.create({
+      data: { planCode, monthlySessionQuota, testsPerSession, monthlyPrice, trialDays, createdBy },
+    });
+  }
+
+  /**
+   * Kayıt sırasında çağrılır. Aktif planın config'ini snapshot alır,
+   * TenantSubscription oluşturur ve bu ay için MonthlySessionBudget hazırlar.
+   */
+  async createInitialSubscription(tenantId: string, planCode: TenantPlan) {
+    const config = await this.getCurrentPlanConfig(planCode);
+
+    await this.prisma.tenantSubscription.create({
+      data: {
+        tenantId,
+        planCode,
+        monthlySessionQuota: config.monthlySessionQuota,
+        testsPerSession: config.testsPerSession,
+      },
+    });
+
+    await this.ensureMonthlyBudget(tenantId, config.monthlySessionQuota);
+    this.logger.log(
+      `Subscription oluşturuldu: tenant=${tenantId} plan=${planCode} quota=${config.monthlySessionQuota}`,
+    );
+  }
+
+  /**
+   * Plan yükseltme (FREE→PRO).
+   * - Eski aboneliği kapatır, yeni oluşturur.
+   * - Bu ayki kalan hak KORUNUR ve yeni kotanın üzerine eklenir.
+   * - Tenant.plan güncellenir.
+   */
+  async upgradePlan(tenantId: string, newPlan: TenantPlan) {
+    const config = await this.getCurrentPlanConfig(newPlan);
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
+    // Eski aboneliği kapat
+    await this.prisma.tenantSubscription.updateMany({
+      where: { tenantId, endDate: null },
+      data: { endDate: now },
+    });
+
+    // Yeni abonelik snapshot'ı
+    await this.prisma.tenantSubscription.create({
+      data: {
+        tenantId,
+        planCode: newPlan,
+        monthlySessionQuota: config.monthlySessionQuota,
+        testsPerSession: config.testsPerSession,
+        startDate: now,
+      },
+    });
+
+    // Bu ayki bütçeye yeni kotayı ekle (kalan üzerine eklenir)
+    const existing = await this.prisma.monthlySessionBudget.findUnique({
+      where: { tenantId_year_month: { tenantId, year, month } },
+    });
+
+    if (existing) {
+      await this.prisma.monthlySessionBudget.update({
+        where: { tenantId_year_month: { tenantId, year, month } },
+        data: { totalQuota: { increment: config.monthlySessionQuota } },
+      });
+    } else {
+      await this.prisma.monthlySessionBudget.create({
+        data: { tenantId, year, month, totalQuota: config.monthlySessionQuota },
+      });
+    }
+
+    // Tenant planını güncelle
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { plan: newPlan },
+    });
+
+    this.logger.log(
+      `Plan yükseltildi: tenant=${tenantId} → ${newPlan} ek_kota=${config.monthlySessionQuota}`,
+    );
+  }
+
+  /** Bu ayki bütçeyi döndürür, yoksa oluşturur. */
+  async ensureMonthlyBudget(tenantId: string, quota?: number) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
+    let totalQuota = quota;
+    if (totalQuota === undefined) {
+      const sub = await this.prisma.tenantSubscription.findFirst({
+        where: { tenantId, endDate: null },
+        orderBy: { startDate: 'desc' },
+      });
+      totalQuota = sub?.monthlySessionQuota ?? DEFAULT_QUOTAS['FREE'];
+    }
+
+    return this.prisma.monthlySessionBudget.upsert({
+      where: { tenantId_year_month: { tenantId, year, month } },
+      create: { tenantId, year, month, totalQuota },
+      update: {}, // zaten varsa dokunma
+    });
+  }
+
+  /** Tenant'ın bu ayki seans kullanımını döndürür. */
+  async getMonthlyUsage(tenantId: string) {
+    const budget = await this.ensureMonthlyBudget(tenantId);
+    const remaining = Math.max(0, budget.totalQuota - budget.usedCount);
+    return {
+      total: budget.totalQuota,
+      used: budget.usedCount,
+      remaining,
+      year: budget.year,
+      month: budget.month,
+    };
+  }
+
+  /** Randevu tamamlandığında/iptal edildiğinde çağrılır. 1 seans düşer. */
+  async consumeSession(tenantId: string) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
+    await this.ensureMonthlyBudget(tenantId);
+
+    await this.prisma.monthlySessionBudget.update({
+      where: { tenantId_year_month: { tenantId, year, month } },
+      data: { usedCount: { increment: 1 } },
+    });
+  }
+
+  /** Tenant'ın mevcut aktif aboneliğini döndürür. */
+  async getActiveSubscription(tenantId: string) {
+    return this.prisma.tenantSubscription.findFirst({
+      where: { tenantId, endDate: null },
+      orderBy: { startDate: 'desc' },
+    });
+  }
+}

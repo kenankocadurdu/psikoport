@@ -22,13 +22,13 @@ import { tr } from "date-fns/locale";
 const PLAN_LABELS: Record<string, string> = {
   FREE: "Ücretsiz",
   PRO: "Pro",
-  ENTERPRISE: "Kurumsal",
+  PROPLUS: "Kurumsal",
 };
 
 const PLAN_COLORS: Record<string, string> = {
   FREE: "bg-muted text-muted-foreground",
   PRO: "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400",
-  ENTERPRISE: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
+  PROPLUS: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
 };
 
 const LICENSE_LABELS: Record<string, string> = {

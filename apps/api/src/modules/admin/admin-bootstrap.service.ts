@@ -18,10 +18,16 @@ export class AdminBootstrapService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
+    // Plan configs: her zaman kontrol et (seed.ts çalışmamış olabilir)
+    await this.seedPlanConfigs();
+
     const email = this.config.get<string>('ADMIN_EMAIL');
     const password = this.config.get<string>('ADMIN_PASSWORD');
 
-    if (!email || !password) return; // env yoksa geç
+    if (!email || !password) {
+      this.logger.warn('ADMIN_EMAIL veya ADMIN_PASSWORD eksik — süper admin bootstrap atlandı');
+      return;
+    }
 
     try {
       // Zaten bir SUPER_ADMIN var mı?
@@ -42,7 +48,7 @@ export class AdminBootstrapService implements OnApplicationBootstrap {
             id: 'system',
             name: 'Psikoport System',
             slug: 'psikoport-system',
-            plan: 'ENTERPRISE',
+            plan: 'PROPLUS',
             maxClients: 0,
             isActive: true,
           },
@@ -121,6 +127,27 @@ export class AdminBootstrapService implements OnApplicationBootstrap {
       this.logger.log(`Süper admin oluşturuldu: ${email}`);
     } catch (err) {
       this.logger.error('Admin bootstrap hatası:', err);
+    }
+  }
+
+  private async seedPlanConfigs() {
+    try {
+      const hasAny = await this.prisma.planConfig.findFirst();
+      if (hasAny) return; // zaten var
+
+      const defaults = [
+        { planCode: 'FREE' as const,       monthlySessionQuota: 25,  testsPerSession: 10, monthlyPrice: 0,    trialDays: 7 },
+        { planCode: 'PRO' as const,        monthlySessionQuota: 250, testsPerSession: 10, monthlyPrice: 999,  trialDays: 0 },
+        { planCode: 'PROPLUS' as const, monthlySessionQuota: 500, testsPerSession: 10, monthlyPrice: 1200, trialDays: 0 },
+      ];
+
+      for (const d of defaults) {
+        await this.prisma.planConfig.create({ data: d });
+      }
+
+      this.logger.log('Başlangıç PlanConfig kayıtları oluşturuldu (FREE:25, PRO:250, PROPLUS:500)');
+    } catch (err) {
+      this.logger.error('PlanConfig seed hatası:', err);
     }
   }
 }

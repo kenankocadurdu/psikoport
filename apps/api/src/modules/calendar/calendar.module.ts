@@ -23,11 +23,13 @@ import { VideoService } from './video/video.service';
 import { VideoIntegrationsController } from './video/video-integrations.controller';
 import { VideoIntegrationsService } from './video/video-integrations.service';
 import { FinanceModule } from '../finance/finance.module';
+import { SubscriptionModule } from '../subscriptions/subscription.module';
 
 @Module({
   imports: [
     PrismaModule,
     FinanceModule,
+    SubscriptionModule,
     ConfigModule,
     QueueModule,
     BullModule.registerQueue({ name: 'appointment-notification' }),

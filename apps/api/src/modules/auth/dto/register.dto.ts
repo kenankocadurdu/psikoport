@@ -16,6 +16,6 @@ export class RegisterDto {
   phone?: string;
 
   @IsOptional()
-  @IsIn(['free', 'pro', 'enterprise'])
-  plan?: 'free' | 'pro' | 'enterprise';
+  @IsIn(['free', 'pro', 'proplus'])
+  plan?: 'free' | 'pro' | 'proplus';
 }

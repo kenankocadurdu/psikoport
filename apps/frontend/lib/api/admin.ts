@@ -13,7 +13,7 @@ export interface AdminTenant {
   id: string;
   name: string;
   slug: string;
-  plan: "FREE" | "PRO" | "ENTERPRISE";
+  plan: "FREE" | "PRO" | "PROPLUS";
   isActive: boolean;
   createdAt: string;
   _count: { clients: number };
@@ -106,3 +106,27 @@ export const approveLicense = (userId: string) =>
 
 export const rejectLicense = (userId: string) =>
   apiFetch(`/admin/licenses/${userId}/reject`, { method: "PATCH" });
+
+export interface PlanConfig {
+  planCode: "FREE" | "PRO" | "PROPLUS";
+  monthlySessionQuota: number;
+  testsPerSession: number;
+  monthlyPrice: number;
+  trialDays: number;
+  updatedAt: string;
+}
+
+export const fetchPlanConfigs = () =>
+  apiFetch<PlanConfig[]>("/admin/plan-config");
+
+export const updatePlanConfig = (dto: {
+  planCode: "FREE" | "PRO" | "PROPLUS";
+  monthlySessionQuota: number;
+  testsPerSession?: number;
+  monthlyPrice?: number;
+  trialDays?: number;
+}) =>
+  apiFetch<PlanConfig>("/admin/plan-config", {
+    method: "POST",
+    body: JSON.stringify(dto),
+  });
