@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 interface User {
   id: string;
+  role: string;
   is2faEnabled: boolean;
 }
 
@@ -62,6 +63,12 @@ export function TwoFactorGuard({ children }: { children: React.ReactNode }) {
 
         const user = (await res.json()) as User;
         console.log("[TwoFactorGuard] kullanıcı:", user);
+
+        if (user.role === "SUPER_ADMIN") {
+          router.replace("/admin");
+          return;
+        }
+
         if (!user.is2faEnabled) {
           console.warn("[TwoFactorGuard] is2faEnabled=false → /setup-2fa");
           router.replace("/setup-2fa");
