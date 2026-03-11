@@ -17,14 +17,14 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 15 * 60 * 1000 } })
+  @Throttle({ default: { limit: 20, ttl: 15 * 60 * 1000 } })
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 15 * 60 * 1000 } })
+  @Throttle({ default: { limit: 20, ttl: 15 * 60 * 1000 } })
   @Post('login-callback')
   async loginCallback(@Body() dto: LoginCallbackDto) {
     return this.authService.loginCallback(dto.auth0Token);

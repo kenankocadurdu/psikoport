@@ -30,7 +30,7 @@ export function Logo({
         viewBox="0 0 76 76"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className={cn(sizes[size], "w-auto", className)}
+        className={cn(sizes[size], "w-auto max-w-full", className)}
         aria-label="Psikoport"
         role="img"
       >
@@ -55,9 +55,11 @@ export function Logo({
   return (
     <svg
       viewBox="0 0 330 76"
+      width="330"
+      height="76"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn(sizes[size], "w-auto", className)}
+      className={cn(sizes[size], "w-auto max-w-full", className)}
       aria-label="Psikoport"
       role="img"
     >

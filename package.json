@@ -8,9 +8,12 @@
     "docker:up": "docker compose -f infra/docker-compose.yml --env-file .env up",
     "docker:down": "docker compose -f infra/docker-compose.yml --env-file .env down",
 
+    
     "docker:infra": "docker compose -f infra/docker-compose.yml --env-file .env up -d postgres redis minio && docker compose -f infra/docker-compose.yml --env-file .env run --rm minio-init",
+    "docker:backend": "docker compose -f infra/docker-compose.yml --env-file .env build api && docker compose -f infra/docker-compose.yml --env-file .env up -d postgres redis minio api && docker compose -f infra/docker-compose.yml --env-file .env run --rm minio-init",
 
     "dev": "turbo run dev",
+    "dev:frontend": "turbo run dev --filter=frontend",
     "create-import-template": "node shared/scripts/create-import-template.mjs",
 
     "frontend": "turbo run build --filter=frontend && turbo run dev --filter=frontend",

@@ -22,9 +22,9 @@ const features = [
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen">
+    <div className="fixed inset-0 flex">
       {/* Sol — marka & özellikler */}
-      <div className="hidden lg:flex lg:w-3/5 flex-col justify-between bg-primary p-12 text-primary-foreground">
+      <div className="hidden lg:flex lg:w-3/5 flex-col justify-between bg-primary p-12 text-primary-foreground overflow-y-auto">
         <div>
           <div className="mb-16">
             <Logo size="lg" variant="white" />
@@ -59,15 +59,16 @@ export default function LoginPage() {
       </div>
 
       {/* Sağ — giriş kartı */}
-      <div className="flex w-full lg:w-2/5 flex-col items-center justify-center bg-background p-8">
+      <div className="flex w-full lg:w-2/5 flex-col items-center justify-start pt-14 lg:justify-center lg:pt-0 bg-background p-8 overflow-y-auto">
         <div className="w-full max-w-sm space-y-8">
           {/* Mobil logo (lg'de gizli) */}
-          <div className="lg:hidden">
-            <Logo size="md" />
+          <div className="lg:hidden flex items-center gap-2">
+            <Logo size="md" iconOnly />
+            <span className="text-xl font-extrabold tracking-tight">Psikoport<span className="inline-block size-1.5 rounded-full bg-rose-500 ml-0.5 mb-2" /></span>
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight">Tekrar hoş geldiniz</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Hoş geldiniz</h2>
             <p className="text-sm text-muted-foreground">
               Hesabınıza giriş yapın ya da yeni hesap oluşturun.
             </p>
@@ -90,12 +91,12 @@ export default function LoginPage() {
             <form action="/api/auth/go-login" method="get" className="contents">
               <button
                 type="submit"
-                className="group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-border bg-background px-4 py-6 text-center transition-all duration-200 hover:border-foreground hover:bg-foreground hover:text-background"
+                className="group flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-border bg-background px-4 py-6 text-center transition-all duration-200 hover:border-secondary hover:bg-secondary hover:text-secondary-foreground"
               >
-                <LogIn className="size-6 text-muted-foreground transition-colors duration-200 group-hover:text-background" />
+                <LogIn className="size-6 text-muted-foreground transition-colors duration-200 group-hover:text-secondary-foreground" />
                 <div>
                   <p className="text-sm font-semibold">Giriş Yap</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground transition-colors duration-200 group-hover:text-background/60">
+                  <p className="mt-0.5 text-xs text-muted-foreground transition-colors duration-200 group-hover:text-secondary-foreground/70">
                     Hesabın var mı?
                   </p>
                 </div>
