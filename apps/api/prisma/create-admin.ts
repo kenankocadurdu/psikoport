@@ -15,6 +15,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
 
 import { PrismaClient } from 'prisma-client';
 import { ManagementClient } from 'auth0';
+import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
 
@@ -121,6 +122,7 @@ async function main() {
   }
 
   // DB kullanıcısı oluştur
+  const passwordHash = await argon2.hash(ADMIN_PASSWORD);
   await prisma.user.create({
     data: {
       tenantId: systemTenant.id,
@@ -130,6 +132,7 @@ async function main() {
       role: 'SUPER_ADMIN',
       is2faEnabled: false,
       isActive: true,
+      passwordHash,
     },
   });
 
