@@ -92,6 +92,7 @@ model User {
   fullName       String
   role           UserRole
   phone          String?
+  passwordHash   String?
   is2faEnabled   Boolean        @default(false)
   licenseStatus  LicenseStatus  @default(PENDING)
   licenseDocUrl  String?
@@ -642,4 +643,12 @@ model AuditLog {
   @@index([tenantId])
   @@index([userId])
   @@index([createdAt])
+}
+
+// --- Sistem geneli ayarlar (key-value) ---
+model SystemConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+  updatedBy String?
 }

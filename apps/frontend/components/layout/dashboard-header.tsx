@@ -160,7 +160,7 @@ export function DashboardHeader() {
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive focus:text-destructive" asChild>
               <Link
-                href="/api/auth/logout"
+                href="/api/auth/do-logout"
                 prefetch={false}
                 onClick={() => {
                   localStorage.removeItem("access_token");

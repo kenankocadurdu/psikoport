@@ -107,6 +107,19 @@ export const approveLicense = (userId: string) =>
 export const rejectLicense = (userId: string) =>
   apiFetch(`/admin/licenses/${userId}/reject`, { method: "PATCH" });
 
+export interface SystemConfig {
+  useAuth0: string; // "true" | "false"
+}
+
+export const fetchSystemConfig = () =>
+  apiFetch<SystemConfig>("/admin/system-config");
+
+export const updateSystemConfig = (dto: { useAuth0?: boolean }) =>
+  apiFetch<SystemConfig>("/admin/system-config", {
+    method: "PATCH",
+    body: JSON.stringify(dto),
+  });
+
 export interface PlanConfig {
   planCode: "FREE" | "PRO" | "PROPLUS";
   monthlySessionQuota: number;

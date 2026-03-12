@@ -12,8 +12,12 @@ import { getSession } from "@auth0/nextjs-auth0/edge";
  */
 export default async function middleware(req: NextRequest) {
   const res = NextResponse.next();
-  const session = await getSession(req, res);
 
+  // Local auth modunda psikoport_token cookie'si yeterli
+  const localToken = req.cookies.get("psikoport_token")?.value;
+  if (localToken) return res;
+
+  const session = await getSession(req, res);
   if (!session) {
     return NextResponse.redirect(new URL("/login", req.url));
   }

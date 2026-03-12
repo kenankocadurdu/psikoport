@@ -6,6 +6,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from '../../database/prisma.module';
 import { StorageModule } from '../common/services/storage.module';
 import { SubscriptionModule } from '../subscriptions/subscription.module';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { SubscriptionModule } from '../subscriptions/subscription.module';
     PrismaModule,
     StorageModule,
     SubscriptionModule,
+    AdminModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

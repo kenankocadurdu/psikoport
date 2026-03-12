@@ -9,12 +9,15 @@ import { ManagementClient } from 'auth0';
 import jwt from 'jsonwebtoken';
 import jwksRsa from 'jwks-rsa';
 import { randomBytes } from 'crypto';
+import * as argon2 from 'argon2';
 import { PrismaService } from '../../database/prisma.service';
 import { UserRole } from 'prisma-client';
 import { RegisterDto } from './dto/register.dto';
+import { LocalLoginDto } from './dto/local-login.dto';
 import { NotificationService } from '../common/services/notification.service';
 import { StorageService } from '../common/services/storage.service';
 import { SubscriptionService } from '../subscriptions/subscription.service';
+import { SystemConfigService, SYSTEM_CONFIG_KEYS } from '../admin/system-config.service';
 
 /** Decoded JWT payload from Auth0 */
 interface Auth0TokenPayload {
@@ -35,6 +38,7 @@ export class AuthService {
     private readonly notification: NotificationService,
     private readonly storage: StorageService,
     private readonly subscriptionService: SubscriptionService,
+    private readonly systemConfigService: SystemConfigService,
   ) {
     const domain = this.configService.get<string>('AUTH0_DOMAIN');
     const clientId = this.configService.get<string>('AUTH0_M2M_CLIENT_ID');
@@ -104,6 +108,48 @@ export class AuthService {
     return { accessToken };
   }
 
+  async getAuthConfig(): Promise<{ useAuth0: boolean }> {
+    const useAuth0 = await this.systemConfigService.getBoolean(SYSTEM_CONFIG_KEYS.USE_AUTH0);
+    return { useAuth0 };
+  }
+
+  private issueLocalToken(user: { auth0Sub: string; tenantId: string }): string {
+    const secret = this.configService.get<string>('JWT_LOCAL_SECRET');
+    if (!secret) throw new Error('JWT_LOCAL_SECRET is not configured');
+    return jwt.sign(
+      { sub: user.auth0Sub, tenantId: user.tenantId },
+      secret,
+      { algorithm: 'HS256', expiresIn: '7d' },
+    );
+  }
+
+  async localLogin(dto: LocalLoginDto): Promise<{
+    access_token: string;
+    user: { id: string; email: string; fullName: string; role: string };
+  }> {
+    const user = await this.prisma.user.findFirst({
+      where: { email: dto.email, isActive: true },
+      include: { tenant: true },
+    });
+
+    // SUPER_ADMIN'in özel tenantId'si (system) gerçek bir Tenant kaydı olmayabilir
+    const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+    if (!user || !user.passwordHash || (!isSuperAdmin && !user.tenant?.isActive)) {
+      throw new UnauthorizedException('Geçersiz e-posta veya şifre');
+    }
+
+    const valid = await argon2.verify(user.passwordHash, dto.password);
+    if (!valid) {
+      throw new UnauthorizedException('Geçersiz e-posta veya şifre');
+    }
+
+    const access_token = this.issueLocalToken(user);
+    return {
+      access_token,
+      user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role },
+    };
+  }
+
   private generateSlug(email: string): string {
     const prefix = email.split('@')[0] ?? 'user';
     const safe = prefix.replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 20);
@@ -111,17 +157,8 @@ export class AuthService {
     return `${safe}-${random}`;
   }
 
-  async register(dto: RegisterDto): Promise<{ message: string }> {
-    if (!this.auth0Management) {
-      throw new Error(
-        'Auth0 Management API not configured. Set AUTH0_M2M_CLIENT_ID and AUTH0_M2M_CLIENT_SECRET.',
-      );
-    }
-
-    const connection = this.configService.get<string>(
-      'AUTH0_DB_CONNECTION',
-      'Username-Password-Authentication',
-    );
+  async register(dto: RegisterDto): Promise<{ message: string } | { access_token: string; user: { id: string; email: string; fullName: string; role: string } }> {
+    const { useAuth0 } = await this.getAuthConfig();
 
     const existingUser = await this.prisma.user.findFirst({
       where: { email: dto.email },
@@ -130,68 +167,91 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
-    let auth0UserId: string;
-    try {
-      const created = await this.auth0Management.users.create({
-        connection,
-        email: dto.email,
-        password: dto.password,
-        name: dto.fullName,
-        email_verified: false,
-      });
-      const uid =
-        (created as { user_id?: string }).user_id ??
-        (created as { data?: { user_id?: string } }).data?.user_id;
-      if (!uid) {
-        throw new Error('Auth0 did not return user_id');
-      }
-      auth0UserId = uid;
-    } catch (err: unknown) {
-      const message =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : 'Auth0 user creation failed';
-      throw new ConflictException(message);
-    }
-
     const slug = this.generateSlug(dto.email);
     const planMap = { free: 'FREE', pro: 'PRO', proplus: 'PROPLUS' } as const;
     const tenantPlan = planMap[dto.plan ?? 'free'];
+
+    // Şifreyi her zaman hash'le (local mod için zorunlu, Auth0 mod için de saklansın)
+    const passwordHash = await argon2.hash(dto.password);
+
+    const connection = this.configService.get<string>(
+      'AUTH0_DB_CONNECTION',
+      'Username-Password-Authentication',
+    );
+
+    // Auth0'a kullanıcı oluşturmayı her zaman dene (mümkünse)
+    // Local mod kapalıyken bile şifre Auth0'da saklansın → geçişte sorun olmaz
+    let auth0UserId: string | null = null;
+    if (this.auth0Management) {
+      try {
+        const created = await this.auth0Management.users.create({
+          connection,
+          email: dto.email,
+          password: dto.password,
+          name: dto.fullName,
+          email_verified: false,
+        });
+        const uid =
+          (created as { user_id?: string }).user_id ??
+          (created as { data?: { user_id?: string } }).data?.user_id;
+        auth0UserId = uid ?? null;
+      } catch (err: unknown) {
+        if (!useAuth0) {
+          // Local modda Auth0 erişilemezse devam et — local sub kullan
+          auth0UserId = null;
+        } else {
+          const message =
+            err && typeof err === 'object' && 'message' in err
+              ? String((err as { message: string }).message)
+              : 'Auth0 user creation failed';
+          throw new ConflictException(message);
+        }
+      }
+    } else if (!useAuth0) {
+      // Auth0 yapılandırılmamış, local mod — sorun değil
+      auth0UserId = null;
+    } else {
+      throw new Error(
+        'Auth0 Management API not configured. Set AUTH0_M2M_CLIENT_ID and AUTH0_M2M_CLIENT_SECRET.',
+      );
+    }
+
+    const finalAuth0Sub = auth0UserId ?? `local|${randomBytes(16).toString('hex')}`;
+
     const tenant = await this.prisma.tenant.create({
-      data: {
-        name: dto.fullName,
-        slug,
-        plan: tenantPlan,
-      },
+      data: { name: dto.fullName, slug, plan: tenantPlan },
     });
 
-    await this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         tenantId: tenant.id,
-        auth0Sub: auth0UserId,
+        auth0Sub: finalAuth0Sub,
         email: dto.email,
         fullName: dto.fullName,
         phone: dto.phone,
+        passwordHash,
         role: UserRole.PSYCHOLOGIST,
       },
     });
 
-    await this.auth0Management.users.update(
-      auth0UserId,
-      {
-        app_metadata: {
-          tenant_id: tenant.id,
-          role: 'psychologist',
-        },
-      },
-    );
+    // Auth0'da kullanıcı oluşturulduysa app_metadata'yı güncelle
+    if (auth0UserId && this.auth0Management) {
+      await this.auth0Management.users.update(
+        auth0UserId,
+        { app_metadata: { tenant_id: tenant.id, role: 'psychologist' } },
+      );
+    }
 
-    // Abonelik snapshot'ı ve ilk aylık bütçeyi oluştur
     await this.subscriptionService.createInitialSubscription(tenant.id, tenantPlan);
 
+    if (!useAuth0) {
+      // Local modda direkt token dön — kullanıcı Auth0'a gitmeden giriş yapabilsin
+      const access_token = this.issueLocalToken(user);
+      return { access_token, user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role } };
+    }
+
     return {
-      message:
-        'Registration successful. Please log in. Auth0 Action must add tenant_id to JWT.',
+      message: 'Registration successful. Please log in. Auth0 Action must add tenant_id to JWT.',
     };
   }
 
@@ -279,13 +339,19 @@ export class AuthService {
     fullName: string;
     role: string;
     is2faEnabled: boolean;
+    systemRequires2FA: boolean;
     licenseStatus: string;
     licenseDocUrl: string | null;
   }> {
-    const dbUser = await this.prisma.user.findUnique({
-      where: { id: user.userId },
-      include: { tenant: true },
-    });
+    const [dbUser, useAuth0] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: user.userId },
+        include: { tenant: true },
+      }),
+      this.systemConfigService.getBoolean(SYSTEM_CONFIG_KEYS.USE_AUTH0),
+    ]);
+    // Auth0 aktifken 2FA geçerli; Auth0 kapalıysa asla /setup-2fa'ya yönlendirme
+    const systemRequires2FA = useAuth0;
 
     if (!dbUser) {
       throw new UnauthorizedException('User not found');
@@ -298,6 +364,7 @@ export class AuthService {
       fullName: dbUser.fullName,
       role: dbUser.role,
       is2faEnabled: dbUser.is2faEnabled,
+      systemRequires2FA,
       licenseStatus: dbUser.licenseStatus,
       licenseDocUrl: dbUser.licenseDocUrl,
     };

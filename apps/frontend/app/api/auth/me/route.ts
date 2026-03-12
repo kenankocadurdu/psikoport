@@ -16,6 +16,11 @@ export async function GET(request: NextRequest) {
       ? authHeader.slice(7)
       : null;
 
+    // Local auth: cookie'den token al
+    if (!accessToken) {
+      accessToken = request.cookies.get("psikoport_token")?.value ?? null;
+    }
+
     if (!accessToken) {
       const session = await auth0.getSession(request, res);
       if (!session) {
@@ -52,6 +57,7 @@ export async function GET(request: NextRequest) {
 
     const apiRes = await fetch(`${API_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
     });
     const data = await apiRes.json().catch(() => ({}));
     return NextResponse.json(data, {

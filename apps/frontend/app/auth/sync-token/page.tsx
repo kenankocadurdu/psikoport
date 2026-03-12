@@ -76,29 +76,31 @@ export default function SyncTokenPage() {
           console.warn("[sync-token] loginCallback network hatası:", e);
         }
 
-        // loginCallback doğrudan is2faEnabled=true döndürdüyse /dashboard'a git
-        if (cbIs2faEnabled === true) {
-          console.log("[sync-token] loginCallback is2faEnabled=true → /");
-          window.location.replace("/");
-          return;
-        }
-
-        // Fallback: /api/auth/me proxy ile kontrol et
+        // /api/auth/me ile kullanıcı ve sistem ayarlarını kontrol et
         console.log("[sync-token] /api/auth/me kontrol ediliyor...");
         const meRes = await fetch("/api/auth/me", {
           credentials: "include",
           headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
         });
         console.log("[sync-token] /api/auth/me yanıtı:", meRes.status);
         if (meRes.ok) {
-          const user = (await meRes.json()) as { is2faEnabled?: boolean };
+          const user = (await meRes.json()) as {
+            is2faEnabled?: boolean;
+            systemRequires2FA?: boolean;
+          };
           console.log("[sync-token] me kullanıcı:", user);
-          if (user.is2faEnabled) {
+
+          // 2FA sistem genelinde zorunlu değilse veya kullanıcı kurulumu tamamlamışsa → dashboard
+          if (!user.systemRequires2FA || user.is2faEnabled || cbIs2faEnabled === true) {
             window.location.replace("/");
             return;
           }
+        } else if (cbIs2faEnabled === true) {
+          window.location.replace("/");
+          return;
         }
-        console.log("[sync-token] is2faEnabled=false → /setup-2fa");
+        console.log("[sync-token] is2faEnabled=false ve systemRequires2FA=true → /setup-2fa");
         window.location.replace("/setup-2fa");
       } catch (e) {
         console.error("[sync-token] beklenmedik hata:", e);

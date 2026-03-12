@@ -5,11 +5,15 @@ import {
   CalendarDays,
   ChartBar,
   FileText,
-  LogIn,
   ShieldCheck,
   Sparkles,
   Users,
+  LogIn,
 } from "lucide-react";
+import { LocalLoginForm } from "@/components/auth/local-login-form";
+
+const API_URL =
+  process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 const features = [
   { icon: Users, text: "Danışan kaydı ve takibi" },
@@ -20,7 +24,18 @@ const features = [
   { icon: ShieldCheck, text: "KVKK uyumlu güvenli altyapı" },
 ];
 
-export default function LoginPage() {
+async function getAuthConfig(): Promise<{ useAuth0: boolean }> {
+  try {
+    const res = await fetch(`${API_URL}/auth/config`, { cache: "no-store" });
+    return res.ok ? res.json() : { useAuth0: true };
+  } catch {
+    return { useAuth0: true };
+  }
+}
+
+export default async function LoginPage() {
+  const { useAuth0 } = await getAuthConfig();
+
   return (
     <div className="fixed inset-0 flex">
       {/* Sol — marka & özellikler */}
@@ -64,7 +79,9 @@ export default function LoginPage() {
           {/* Mobil logo (lg'de gizli) */}
           <div className="lg:hidden flex items-center gap-2">
             <Logo size="md" iconOnly />
-            <span className="text-xl font-extrabold tracking-tight">Psikoport<span className="inline-block size-1.5 rounded-full bg-rose-500 ml-0.5 mb-2" /></span>
+            <span className="text-xl font-extrabold tracking-tight">
+              Psikoport<span className="inline-block size-1.5 rounded-full bg-rose-500 ml-0.5 mb-2" />
+            </span>
           </div>
 
           <div className="space-y-2">
@@ -74,35 +91,41 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Link
-              href="/register"
-              className="group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-border bg-background px-4 py-6 text-center transition-all duration-200 hover:border-primary hover:bg-primary hover:text-primary-foreground"
-            >
-              <Sparkles className="size-6 text-primary transition-colors duration-200 group-hover:text-primary-foreground" />
-              <div>
-                <p className="text-sm font-semibold">Ücretsiz Başla</p>
-                <p className="mt-0.5 text-xs text-muted-foreground transition-colors duration-200 group-hover:text-primary-foreground/70">
-                  Hesap oluştur
-                </p>
-              </div>
-            </Link>
-
-            <form action="/api/auth/go-login" method="get" className="contents">
-              <button
-                type="submit"
-                className="group flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-border bg-background px-4 py-6 text-center transition-all duration-200 hover:border-secondary hover:bg-secondary hover:text-secondary-foreground"
+          {useAuth0 ? (
+            /* Auth0 modu */
+            <div className="grid grid-cols-2 gap-3">
+              <Link
+                href="/register"
+                className="group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-border bg-background px-4 py-6 text-center transition-all duration-200 hover:border-primary hover:bg-primary hover:text-primary-foreground"
               >
-                <LogIn className="size-6 text-muted-foreground transition-colors duration-200 group-hover:text-secondary-foreground" />
+                <Sparkles className="size-6 text-primary transition-colors duration-200 group-hover:text-primary-foreground" />
                 <div>
-                  <p className="text-sm font-semibold">Giriş Yap</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground transition-colors duration-200 group-hover:text-secondary-foreground/70">
-                    Hesabın var mı?
+                  <p className="text-sm font-semibold">Ücretsiz Başla</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground transition-colors duration-200 group-hover:text-primary-foreground/70">
+                    Hesap oluştur
                   </p>
                 </div>
-              </button>
-            </form>
-          </div>
+              </Link>
+
+              <form action="/api/auth/go-login" method="get" className="contents">
+                <button
+                  type="submit"
+                  className="group flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-border bg-background px-4 py-6 text-center transition-all duration-200 hover:border-secondary hover:bg-secondary hover:text-secondary-foreground"
+                >
+                  <LogIn className="size-6 text-muted-foreground transition-colors duration-200 group-hover:text-secondary-foreground" />
+                  <div>
+                    <p className="text-sm font-semibold">Giriş Yap</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground transition-colors duration-200 group-hover:text-secondary-foreground/70">
+                      Hesabın var mı?
+                    </p>
+                  </div>
+                </button>
+              </form>
+            </div>
+          ) : (
+            /* Local mod — e-posta/şifre formu */
+            <LocalLoginForm />
+          )}
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">

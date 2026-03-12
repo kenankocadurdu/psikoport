@@ -11,6 +11,7 @@ import {
   LogOut,
   ShieldCheck,
   Settings2,
+  SlidersHorizontal,
   Loader2,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
@@ -27,6 +28,7 @@ const navItems = [
   { href: "/admin/licenses", label: "Lisans Onayları", icon: FileCheck, exact: false },
   { href: "/admin/users", label: "Kullanıcılar", icon: Users, exact: false },
   { href: "/admin/plan-config", label: "Plan Ayarları", icon: Settings2, exact: false },
+  { href: "/admin/settings", label: "Sistem Ayarları", icon: SlidersHorizontal, exact: false },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -106,7 +108,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <p className="text-xs text-muted-foreground truncate">{me.email}</p>
           </div>
           <a
-            href="/api/auth/logout"
+            href="/api/auth/do-logout"
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
           >
             <LogOut className="size-4 shrink-0" />

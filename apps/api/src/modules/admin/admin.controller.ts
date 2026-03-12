@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, Min } from 'class-validator';
 import { TenantPlan } from 'prisma-client';
 import { AdminService } from './admin.service';
+import { SystemConfigService, SYSTEM_CONFIG_KEYS } from './system-config.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { SubscriptionService } from '../subscriptions/subscription.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -31,12 +32,19 @@ class UpdatePlanConfigDto {
   trialDays?: number;
 }
 
+class UpdateSystemConfigDto {
+  @IsOptional()
+  @IsBoolean()
+  useAuth0?: boolean;
+}
+
 @Controller('admin')
 @Roles('super_admin')
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly subscriptionService: SubscriptionService,
+    private readonly systemConfigService: SystemConfigService,
   ) {}
 
   // --- Plan Config ---
@@ -107,5 +115,27 @@ export class AdminController {
   @Patch('users/:id/toggle')
   toggleUser(@Param('id') id: string) {
     return this.adminService.toggleUserActive(id);
+  }
+
+  // --- System Config ---
+
+  @Get('system-config')
+  async getSystemConfig() {
+    return this.systemConfigService.getAll();
+  }
+
+  @Patch('system-config')
+  async updateSystemConfig(
+    @Body() dto: UpdateSystemConfigDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    if (dto.useAuth0 !== undefined) {
+      await this.systemConfigService.set(
+        SYSTEM_CONFIG_KEYS.USE_AUTH0,
+        String(dto.useAuth0),
+        user.userId,
+      );
+    }
+    return this.systemConfigService.getAll();
   }
 }

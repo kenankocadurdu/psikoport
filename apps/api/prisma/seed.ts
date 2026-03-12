@@ -13,6 +13,7 @@ import { PrismaClient } from 'prisma-client';
 import { createHash } from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
 
@@ -183,11 +184,31 @@ async function seedPlanConfigs() {
   console.log('✓ PlanConfigs seeded (FREE:25, PRO:250, PROPLUS:500)');
 }
 
+async function seedSuperAdminPassword() {
+  const email = process.env.SUPER_ADMIN_EMAIL;
+  const password = process.env.SUPER_ADMIN_PASSWORD;
+  if (!email || !password) {
+    console.log('⚠ SUPER_ADMIN_EMAIL/PASSWORD tanımlı değil, şifre güncellenmedi');
+    return;
+  }
+  const passwordHash = await argon2.hash(password);
+  const updated = await prisma.user.updateMany({
+    where: { email, role: 'SUPER_ADMIN', isActive: true },
+    data: { passwordHash },
+  });
+  if (updated.count > 0) {
+    console.log(`✓ Super admin şifresi güncellendi (${email})`);
+  } else {
+    console.log(`⚠ Super admin bulunamadı (${email})`);
+  }
+}
+
 async function main() {
   console.log('🚀 Psikoport system seed başlıyor...');
   await seedConsentTexts();
   await seedFormDefinitions();
   await seedPlanConfigs();
+  await seedSuperAdminPassword();
   console.log('✅ System seed tamamlandı.');
 }
 

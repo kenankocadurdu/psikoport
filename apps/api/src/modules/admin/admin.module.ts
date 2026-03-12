@@ -6,11 +6,13 @@ import { AdminService } from './admin.service';
 import { AdminBootstrapService } from './admin-bootstrap.service';
 import { LicensesController } from './licenses.controller';
 import { LicensesService } from './licenses.service';
+import { SystemConfigService } from './system-config.service';
 import { SubscriptionModule } from '../subscriptions/subscription.module';
 
 @Module({
   imports: [PrismaModule, ConfigModule, SubscriptionModule],
   controllers: [AdminController, LicensesController],
-  providers: [AdminService, AdminBootstrapService, LicensesService],
+  providers: [AdminService, AdminBootstrapService, LicensesService, SystemConfigService],
+  exports: [SystemConfigService],
 })
 export class AdminModule {}

@@ -3,6 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuditLog } from '../common/decorators/audit-log.decorator';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
+import { LocalLoginDto } from './dto/local-login.dto';
 import { LoginCallbackDto } from './dto/login-callback.dto';
 import { InviteDto } from './dto/invite.dto';
 import { InviteAcceptDto } from './dto/invite-accept.dto';
@@ -21,6 +22,19 @@ export class AuthController {
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Public()
+  @Get('config')
+  async getAuthConfig() {
+    return this.authService.getAuthConfig();
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 15 * 60 * 1000 } })
+  @Post('local-login')
+  async localLogin(@Body() dto: LocalLoginDto) {
+    return this.authService.localLogin(dto);
   }
 
   @Public()

@@ -33,11 +33,12 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       .getRequest<{ url?: string; headers?: { authorization?: string }; user?: JwtUser }>();
     if (request.url?.startsWith('/api/docs')) return true;
 
-    // E2E: try HS256 token first when E2E_TEST=1
-    if (this.configService.get<string>('E2E_TEST') === '1') {
-      const auth = request.headers?.authorization;
-      const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
-      if (token) {
+    const auth = request.headers?.authorization;
+    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+
+    if (token) {
+      // E2E: try HS256 token first when E2E_TEST=1
+      if (this.configService.get<string>('E2E_TEST') === '1') {
         const secret = this.configService.get<string>('E2E_JWT_SECRET') ?? 'e2e-test-secret';
         try {
           const payload = jwt.verify(token, secret, { algorithms: ['HS256'] }) as { sub?: string; tenant_id?: string };
@@ -61,7 +62,38 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
             }
           }
         } catch {
-          // Not an E2E token, fall through to Auth0 JWT
+          // Not an E2E token, fall through
+        }
+      }
+
+      // Local auth: try HS256 token with JWT_LOCAL_SECRET
+      const localSecret = this.configService.get<string>('JWT_LOCAL_SECRET');
+      if (localSecret) {
+        try {
+          const payload = jwt.verify(token, localSecret, { algorithms: ['HS256'] }) as { sub?: string; tenantId?: string };
+          if (payload?.sub && payload?.tenantId) {
+            const user = await this.prisma.user.findFirst({
+              where: { auth0Sub: payload.sub, tenantId: payload.tenantId },
+              include: { tenant: true },
+            });
+            // SUPER_ADMIN'in özel tenantId'si (system) gerçek Tenant kaydı olmayabilir
+            const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+            if (user?.isActive && (isSuperAdmin || user?.tenant?.isActive)) {
+              request.user = {
+                sub: payload.sub,
+                tenantId: user.tenantId,
+                userId: user.id,
+                email: user.email ?? undefined,
+                fullName: user.fullName ?? undefined,
+                role: user.role,
+                is2faEnabled: user.is2faEnabled ?? true,
+              };
+              await this.prisma.$executeRaw`SELECT set_current_tenant(${user.tenantId})`;
+              return true;
+            }
+          }
+        } catch {
+          // Not a local token, fall through to Auth0 JWT
         }
       }
     }

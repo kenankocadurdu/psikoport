@@ -6,16 +6,20 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { SKIP_2FA_KEY } from '../decorators/skip-2fa.decorator';
+import { SystemConfigService, SYSTEM_CONFIG_KEYS } from '../../admin/system-config.service';
 
 /**
- * is2faEnabled = false olan kullanıcılar dashboard API'lerine erişemez.
- * 403 döner, frontend /setup-2fa'ya yönlendirir.
+ * Auth0 aktifken kullanıcının 2FA kurulumu yoksa 403 döner.
+ * Auth0 kapalıysa (local mod) guard tamamen bypass edilir.
  */
 @Injectable()
 export class TwoFactorGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly systemConfigService: SystemConfigService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const skip2fa = this.reflector.getAllAndOverride<boolean>(SKIP_2FA_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -27,7 +31,11 @@ export class TwoFactorGuard implements CanActivate {
     }>();
     const user = request.user;
 
-    if (!user) return true; // JWT guard zaten geçmediyse buraya gelmez
+    if (!user) return true;
+
+    // Auth0 kapalıysa 2FA kontrolü yapma
+    const useAuth0 = await this.systemConfigService.getBoolean(SYSTEM_CONFIG_KEYS.USE_AUTH0);
+    if (!useAuth0) return true;
 
     if (user.is2faEnabled !== true) {
       throw new ForbiddenException({
