@@ -7,7 +7,7 @@
     "docker:build": "docker compose -f infra/docker-compose.yml --env-file .env down && docker compose -f infra/docker-compose.yml --env-file .env build --no-cache && docker compose -f infra/docker-compose.yml --env-file .env up && docker compose -f infra/docker-compose.yml --env-file .env run --rm minio-init",
     "docker:up": "docker compose -f infra/docker-compose.yml --env-file .env up",
     "docker:down": "docker compose -f infra/docker-compose.yml --env-file .env down -v",
-    "docker:backend": "docker compose -f infra/docker-compose.yml --env-file .env build api && docker compose -f infra/docker-compose.yml --env-file .env up -d postgres redis minio api && docker compose -f infra/docker-compose.yml --env-file .env run --rm minio-init",
+    "docker:backend": "docker compose -f infra/docker-compose.yml --env-file .env build --no-cache api && docker compose -f infra/docker-compose.yml --env-file .env up -d postgres redis minio api && docker compose -f infra/docker-compose.yml --env-file .env run --rm minio-init",
     "docker:backend_up": "docker compose -f infra/docker-compose.yml --env-file .env up -d postgres redis minio api && docker compose -f infra/docker-compose.yml --env-file .env run --rm minio-init",
 
     "dev": "turbo run dev",

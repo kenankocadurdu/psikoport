@@ -20,7 +20,29 @@ const DEFAULT_TRIAL_DAYS: Record<TenantPlan, number> = {
   PROPLUS: 0,
 };
 
-const DEFAULT_TESTS_PER_SESSION = 10;
+const DEFAULT_TESTS_PER_SESSION: Record<TenantPlan, number> = {
+  FREE: 1,
+  PRO: 5,
+  PROPLUS: 10,
+};
+
+const DEFAULT_FORMS_PER_SESSION: Record<TenantPlan, number> = {
+  FREE: 1,
+  PRO: 5,
+  PROPLUS: 10,
+};
+
+const DEFAULT_REMINDERS_PER_SESSION: Record<TenantPlan, number> = {
+  FREE: 0,
+  PRO: 2,
+  PROPLUS: 5,
+};
+
+const DEFAULT_CUSTOM_FORM_QUOTA: Record<TenantPlan, number> = {
+  FREE: 0,
+  PRO: 1,
+  PROPLUS: 10,
+};
 
 @Injectable()
 export class SubscriptionService {
@@ -29,32 +51,38 @@ export class SubscriptionService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Belirli plan için en güncel PlanConfig'i döndürür. Yoksa varsayılanları kullanır. */
-  async getCurrentPlanConfig(
-    planCode: TenantPlan,
-  ): Promise<{ monthlySessionQuota: number; testsPerSession: number }> {
+  async getCurrentPlanConfig(planCode: TenantPlan): Promise<{
+    monthlySessionQuota: number;
+    testsPerSession: number;
+    formsPerSession: number;
+    remindersPerSession: number;
+    customFormQuota: number;
+  }> {
     const config = await this.prisma.planConfig.findFirst({
       where: { planCode },
       orderBy: { createdAt: 'desc' },
     });
     return {
-      monthlySessionQuota:
-        config?.monthlySessionQuota ?? DEFAULT_QUOTAS[planCode],
-      testsPerSession:
-        config?.testsPerSession ?? DEFAULT_TESTS_PER_SESSION,
+      monthlySessionQuota: config?.monthlySessionQuota ?? DEFAULT_QUOTAS[planCode],
+      testsPerSession: config?.testsPerSession ?? DEFAULT_TESTS_PER_SESSION[planCode],
+      formsPerSession: config?.formsPerSession ?? DEFAULT_FORMS_PER_SESSION[planCode],
+      remindersPerSession: config?.remindersPerSession ?? DEFAULT_REMINDERS_PER_SESSION[planCode],
+      customFormQuota: config?.customFormQuota ?? DEFAULT_CUSTOM_FORM_QUOTA[planCode],
     };
   }
 
   /** Tüm planların güncel config'lerini döndürür. */
-  async getAllPlanConfigs(): Promise<
-    {
-      planCode: TenantPlan;
-      monthlySessionQuota: number;
-      testsPerSession: number;
-      monthlyPrice: number;
-      trialDays: number;
-      updatedAt: Date;
-    }[]
-  > {
+  async getAllPlanConfigs(): Promise<{
+    planCode: TenantPlan;
+    monthlySessionQuota: number;
+    testsPerSession: number;
+    formsPerSession: number;
+    remindersPerSession: number;
+    customFormQuota: number;
+    monthlyPrice: number;
+    trialDays: number;
+    updatedAt: Date;
+  }[]> {
     const plans: TenantPlan[] = ['FREE', 'PRO', 'PROPLUS'];
     return Promise.all(
       plans.map(async (planCode) => {
@@ -65,7 +93,10 @@ export class SubscriptionService {
         return {
           planCode,
           monthlySessionQuota: config?.monthlySessionQuota ?? DEFAULT_QUOTAS[planCode],
-          testsPerSession: config?.testsPerSession ?? DEFAULT_TESTS_PER_SESSION,
+          testsPerSession: config?.testsPerSession ?? DEFAULT_TESTS_PER_SESSION[planCode],
+          formsPerSession: config?.formsPerSession ?? DEFAULT_FORMS_PER_SESSION[planCode],
+          remindersPerSession: config?.remindersPerSession ?? DEFAULT_REMINDERS_PER_SESSION[planCode],
+          customFormQuota: config?.customFormQuota ?? DEFAULT_CUSTOM_FORM_QUOTA[planCode],
           monthlyPrice: config?.monthlyPrice ?? DEFAULT_PRICES[planCode],
           trialDays: config?.trialDays ?? DEFAULT_TRIAL_DAYS[planCode],
           updatedAt: config?.updatedAt ?? new Date(0),
@@ -79,12 +110,19 @@ export class SubscriptionService {
     planCode: TenantPlan,
     monthlySessionQuota: number,
     testsPerSession: number,
+    formsPerSession: number,
+    remindersPerSession: number,
+    customFormQuota: number,
     monthlyPrice: number,
     trialDays: number,
     createdBy?: string,
   ) {
     return this.prisma.planConfig.create({
-      data: { planCode, monthlySessionQuota, testsPerSession, monthlyPrice, trialDays, createdBy },
+      data: {
+        planCode, monthlySessionQuota,
+        testsPerSession, formsPerSession, remindersPerSession,
+        customFormQuota, monthlyPrice, trialDays, createdBy,
+      },
     });
   }
 
@@ -101,6 +139,9 @@ export class SubscriptionService {
         planCode,
         monthlySessionQuota: config.monthlySessionQuota,
         testsPerSession: config.testsPerSession,
+        formsPerSession: config.formsPerSession,
+        remindersPerSession: config.remindersPerSession,
+        customFormQuota: config.customFormQuota,
       },
     });
 
@@ -135,6 +176,9 @@ export class SubscriptionService {
         planCode: newPlan,
         monthlySessionQuota: config.monthlySessionQuota,
         testsPerSession: config.testsPerSession,
+        formsPerSession: config.formsPerSession,
+        remindersPerSession: config.remindersPerSession,
+        customFormQuota: config.customFormQuota,
         startDate: now,
       },
     });

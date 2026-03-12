@@ -584,7 +584,10 @@ model PlanConfig {
   id                  String     @id @default(cuid())
   planCode            TenantPlan
   monthlySessionQuota Int        // aylık seans hakkı
-  testsPerSession     Int        @default(10)  // seans başına test hakkı
+  testsPerSession     Int        @default(10)  // seans başına psikometrik test hakkı
+  formsPerSession     Int        @default(1)   // seans başına form gönderme hakkı
+  remindersPerSession Int        @default(0)   // seans başına hatırlatma bildirimi
+  customFormQuota     Int        @default(0)   // özel form tasarım hakkı (0=yok)
   monthlyPrice        Int        @default(0)   // aylık fiyat (TL)
   trialDays           Int        @default(0)   // deneme süresi (gün)
   createdAt           DateTime   @default(now())
@@ -601,6 +604,9 @@ model TenantSubscription {
   planCode            TenantPlan
   monthlySessionQuota Int        // satın alma anında kilitlenen kota
   testsPerSession     Int        @default(10)
+  formsPerSession     Int        @default(1)
+  remindersPerSession Int        @default(0)
+  customFormQuota     Int        @default(0)
   startDate           DateTime   @default(now())
   endDate             DateTime?  // null = hâlâ aktif
   createdAt           DateTime   @default(now())

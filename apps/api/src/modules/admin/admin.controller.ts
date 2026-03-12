@@ -17,9 +17,24 @@ class UpdatePlanConfigDto {
   monthlySessionQuota!: number;
 
   @IsInt()
-  @Min(1)
+  @Min(0)
   @IsOptional()
   testsPerSession?: number;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  formsPerSession?: number;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  remindersPerSession?: number;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  customFormQuota?: number;
 
   @IsInt()
   @Min(0)
@@ -62,7 +77,10 @@ export class AdminController {
     return this.subscriptionService.upsertPlanConfig(
       dto.planCode,
       dto.monthlySessionQuota,
-      dto.testsPerSession ?? 10,
+      dto.testsPerSession ?? 1,
+      dto.formsPerSession ?? 1,
+      dto.remindersPerSession ?? 0,
+      dto.customFormQuota ?? 0,
       dto.monthlyPrice ?? 0,
       dto.trialDays ?? 0,
       user.userId,

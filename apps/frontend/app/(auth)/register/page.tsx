@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, ArrowRight, Check, CreditCard, Lock, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CreditCard, Lock, Loader2, Minus, ClipboardList, FileText, Bell } from "lucide-react";
 import { Logo } from "@/components/logo";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -25,56 +25,41 @@ type BillingPeriod = "monthly" | "yearly";
 interface PlanConfig {
   planCode: PlanCode;
   monthlySessionQuota: number;
+  testsPerSession: number;
+  formsPerSession: number;
+  remindersPerSession: number;
+  customFormQuota: number;
   monthlyPrice: number;
   trialDays: number;
 }
 
-const PLAN_DISPLAY: Record<PlanCode, {
+const PLAN_META: Record<PlanCode, {
   name: string;
   tagline: string;
   sessionLabel: string;
-  features: string[];
   badge?: string;
 }> = {
-  FREE: {
-    name: "Ücretsiz Deneme",
-    tagline: "Kredi kartı gerekmez",
-    sessionLabel: "deneme süresi boyunca",
-    features: [
-      "Randevu planlama",
-      "Temel Seans Notları",
-      "Temel gelir takibi",
-      "10 psikometrik test",
-    ],
-  },
-  PRO: {
-    name: "Pro",
-    tagline: "Pratiğinizi tam kapasiteyle büyütün",
-    sessionLabel: "her ay",
-    badge: "Popüler",
-    features: [
-      "Randevu planlama",
-      "Gelişmiş Seans Notları ve Araçları",
-      "Gelişmiş gelir takibi",
-      "10 psikometrik test",
-      "Seans hatırlatma bildirimleri",
-      "Ticket sistemi ile hızlı destek (08:00 - 20:00)",
-    ],
-  },
-  PROPLUS: {
-    name: "Pro Plus",
-    tagline: "Yüksek hacimli pratik için",
-    sessionLabel: "her ay",
-    features: [
-      "Randevu planlama",
-      "Gelişmiş Seans Notları ve Araçları",
-      "Gelişmiş gelir takibi",
-      "10 psikometrik test",
-      "Seans hatırlatma bildirimleri",
-      "Öncelikli destek (08:00 - 22:00)",
-    ],
-  },
+  FREE:    { name: "Ücretsiz Deneme", tagline: "Kredi kartı gerekmez",              sessionLabel: "deneme süresi boyunca" },
+  PRO:     { name: "Pro",             tagline: "Pratiğinizi tam kapasiteyle büyütün", sessionLabel: "her ay", badge: "Popüler" },
+  PROPLUS: { name: "Pro Plus",        tagline: "Yüksek hacimli pratik için",          sessionLabel: "her ay" },
 };
+
+type FeatureItem = { label: string; value: string | null };
+
+function getPlanFeatures(code: PlanCode, cfg: PlanConfig): FeatureItem[] {
+  const isPro = code !== "FREE";
+  return [
+    { label: "Randevu planlama",              value: "✓" },
+    { label: "Özel form tasarımı",            value: cfg.customFormQuota === 0 ? null : `${cfg.customFormQuota} adet` },
+    { label: isPro ? "Gelişmiş seans notları ve araçları" : "Temel seans notları", value: "✓" },
+    { label: isPro ? "Gelişmiş gelir takibi" : "Temel gelir takibi",               value: "✓" },
+    { label: "Hatırlatma bildirimleri",       value: cfg.remindersPerSession === 0 ? null : "✓" },
+    {
+      label: "Destek",
+      value: code === "FREE" ? null : code === "PRO" ? "Ticket (08:00–18:00)" : "Öncelikli (08:00–18:00)",
+    },
+  ];
+}
 
 const registerSchema = z.object({
   fullName: z.string().min(2, "Ad soyad en az 2 karakter olmalı").max(100),
@@ -134,11 +119,14 @@ export default function RegisterPage() {
     planConfigs?.find((p) => p.planCode === code) ?? {
       planCode: code,
       monthlySessionQuota: code === "FREE" ? 25 : code === "PRO" ? 250 : 500,
+      testsPerSession: code === "FREE" ? 1 : code === "PRO" ? 5 : 10,
+      formsPerSession: code === "FREE" ? 1 : code === "PRO" ? 5 : 10,
+      remindersPerSession: code === "FREE" ? 0 : code === "PRO" ? 2 : 5,
+      customFormQuota: code === "FREE" ? 0 : code === "PRO" ? 1 : 10,
       monthlyPrice: code === "FREE" ? 0 : code === "PRO" ? 999 : 1200,
       trialDays: code === "FREE" ? 7 : 0,
     };
 
-  const display = PLAN_DISPLAY[selectedPlan];
   const config = getConfig(selectedPlan);
   const isPaid = selectedPlan !== "FREE";
   const currentPrice =
@@ -262,16 +250,17 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-3">
           {planCodes.map((code) => {
             const cfg = getConfig(code);
-            const disp = PLAN_DISPLAY[code];
+            const meta = PLAN_META[code];
             const isSelected = selectedPlan === code;
             const isPaidPlan = code !== "FREE";
             const displayPrice =
               billingPeriod === "yearly" && isPaidPlan
                 ? Math.round(annualPrice(cfg.monthlyPrice) / 12)
                 : cfg.monthlyPrice;
+            const features = getPlanFeatures(code, cfg);
 
             return (
               <button
@@ -283,9 +272,9 @@ export default function RegisterPage() {
                   isSelected ? "border-primary bg-primary/5" : "border-border bg-background",
                 )}
               >
-                {disp.badge && (
+                {meta.badge && (
                   <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap">
-                    {disp.badge}
+                    {meta.badge}
                   </Badge>
                 )}
                 {isSelected && (
@@ -294,10 +283,11 @@ export default function RegisterPage() {
                   </span>
                 )}
 
-                {/* Fiyat */}
+                {/* Plan adı + fiyat */}
                 <div className="mb-4">
-                  <div className="font-semibold">{disp.name}</div>
-                  <div className="mt-1 text-2xl font-bold">
+                  <div className="font-semibold text-base">{meta.name}</div>
+                  <p className="text-xs text-muted-foreground mb-2">{meta.tagline}</p>
+                  <div className="text-2xl font-bold">
                     {cfg.monthlyPrice === 0 ? "Ücretsiz" : (
                       <>₺{displayPrice}<span className="text-sm font-normal text-muted-foreground">/ay</span></>
                     )}
@@ -311,20 +301,51 @@ export default function RegisterPage() {
                   </p>
                 </div>
 
-                {/* Seans kapasitesi */}
+                {/* Aylık seans kapasitesi */}
                 <div className="mb-3 rounded-lg bg-primary/8 px-3 py-2">
                   <span className="text-lg font-bold text-primary">{cfg.monthlySessionQuota} seans</span>
-                  <span className="ml-1.5 text-xs text-muted-foreground">{disp.sessionLabel}</span>
+                  <span className="ml-1.5 text-xs text-muted-foreground">{meta.sessionLabel}</span>
                 </div>
 
-                <p className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {/* Seans İçerir */}
+                <div className="mb-4 rounded-lg border bg-muted/30 p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Seans İçerir
+                  </p>
+                  <div className="grid grid-cols-3 gap-1 text-center">
+                    <div>
+                      <div className="text-base font-bold text-foreground">{cfg.testsPerSession}</div>
+                      <div className="text-xs text-muted-foreground leading-tight">Psik. Test</div>
+                    </div>
+                    <div>
+                      <div className="text-base font-bold text-foreground">{cfg.formsPerSession}</div>
+                      <div className="text-xs text-muted-foreground leading-tight">Form</div>
+                    </div>
+                    <div>
+                      <div className="text-base font-bold text-foreground">{cfg.remindersPerSession}</div>
+                      <div className="text-xs text-muted-foreground leading-tight">Hatırlatma</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Özellikler */}
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Özellikler
                 </p>
-                <ul className="space-y-1.5 text-sm text-muted-foreground">
-                  {disp.features.map((f) => (
-                    <li key={f} className="flex items-center gap-1.5">
-                      <Check className="size-3.5 shrink-0 text-primary" />
-                      {f}
+                <ul className="space-y-1.5 text-sm">
+                  {features.map((f) => (
+                    <li key={f.label} className="flex items-start gap-1.5">
+                      {f.value !== null ? (
+                        <Check className="size-3.5 shrink-0 mt-0.5 text-primary" />
+                      ) : (
+                        <Minus className="size-3.5 shrink-0 mt-0.5 text-muted-foreground/40" />
+                      )}
+                      <span className={f.value !== null ? "text-foreground" : "text-muted-foreground/50"}>
+                        {f.label}
+                        {f.value !== null && f.value !== "✓" && (
+                          <span className="ml-1 text-xs text-muted-foreground">({f.value})</span>
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -356,7 +377,7 @@ export default function RegisterPage() {
       <div className="flex items-center justify-between">
         <Logo size="md" />
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-medium">{display.name}</span>
+          <span className="font-medium">{PLAN_META[selectedPlan].name}</span>
           {isPaid ? (
             <Badge variant="secondary">
               ₺{currentPrice}/ay · {billingPeriod === "yearly" ? "Yıllık" : "Aylık"}
@@ -553,7 +574,7 @@ export default function RegisterPage() {
         <div className="rounded-xl bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
           {isPaid ? (
             <>
-              <span className="font-medium text-foreground">{display.name}</span> planı —{" "}
+              <span className="font-medium text-foreground">{PLAN_META[selectedPlan].name}</span> planı —{" "}
               {billingPeriod === "yearly" ? (
                 <>yıllık <span className="font-medium text-foreground">₺{annualPrice(config.monthlyPrice).toLocaleString("tr-TR")}</span> ücretlendirileceksiniz.</>
               ) : (

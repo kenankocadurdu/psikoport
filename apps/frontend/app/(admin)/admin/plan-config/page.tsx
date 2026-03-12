@@ -44,6 +44,9 @@ function PlanCard({ config }: { config: PlanConfig }) {
 
   const [quota, setQuota] = useState(String(config.monthlySessionQuota));
   const [tests, setTests] = useState(String(config.testsPerSession));
+  const [forms, setForms] = useState(String(config.formsPerSession));
+  const [reminders, setReminders] = useState(String(config.remindersPerSession));
+  const [formQuota, setFormQuota] = useState(String(config.customFormQuota));
   const [price, setPrice] = useState(String(config.monthlyPrice));
   const [trialDays, setTrialDays] = useState(String(config.trialDays));
   const [dirty, setDirty] = useState(false);
@@ -54,6 +57,9 @@ function PlanCard({ config }: { config: PlanConfig }) {
         planCode: config.planCode,
         monthlySessionQuota: parseInt(quota),
         testsPerSession: parseInt(tests),
+        formsPerSession: parseInt(forms),
+        remindersPerSession: parseInt(reminders),
+        customFormQuota: parseInt(formQuota),
         monthlyPrice: parseInt(price),
         trialDays: parseInt(trialDays),
       }),
@@ -69,11 +75,17 @@ function PlanCard({ config }: { config: PlanConfig }) {
 
   const isValid =
     parseInt(quota) >= 1 &&
-    parseInt(tests) >= 1 &&
+    parseInt(tests) >= 0 &&
+    parseInt(forms) >= 0 &&
+    parseInt(reminders) >= 0 &&
+    parseInt(formQuota) >= 0 &&
     parseInt(price) >= 0 &&
     parseInt(trialDays) >= 0 &&
     !isNaN(parseInt(quota)) &&
     !isNaN(parseInt(tests)) &&
+    !isNaN(parseInt(forms)) &&
+    !isNaN(parseInt(reminders)) &&
+    !isNaN(parseInt(formQuota)) &&
     !isNaN(parseInt(price)) &&
     !isNaN(parseInt(trialDays));
 
@@ -116,14 +128,49 @@ function PlanCard({ config }: { config: PlanConfig }) {
           </p>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs font-medium">Seans Başına Test Hakkı</Label>
+          <Label className="text-xs font-medium">Seans Başına Psikometrik Test</Label>
           <Input
             type="number"
-            min={1}
+            min={0}
             value={tests}
             onChange={(e) => { setTests(e.target.value); mark(); }}
             className="h-9"
           />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Seans Başına Form Sayısı</Label>
+          <Input
+            type="number"
+            min={0}
+            value={forms}
+            onChange={(e) => { setForms(e.target.value); mark(); }}
+            className="h-9"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Seans Başına Hatırlatma Bildirimi</Label>
+          <Input
+            type="number"
+            min={0}
+            value={reminders}
+            onChange={(e) => { setReminders(e.target.value); mark(); }}
+            className="h-9"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Özel Form Tasarım Hakkı</Label>
+          <Input
+            type="number"
+            min={0}
+            value={formQuota}
+            onChange={(e) => { setFormQuota(e.target.value); mark(); }}
+            className="h-9"
+          />
+          <p className="text-xs text-muted-foreground">
+            {parseInt(formQuota) === 0
+              ? "Bu planda form tasarımı kapalı."
+              : `${parseInt(formQuota)} adet özel form tasarlanabilir.`}
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-medium">Aylık Fiyat (₺)</Label>

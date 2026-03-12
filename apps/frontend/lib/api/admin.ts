@@ -124,6 +124,9 @@ export interface PlanConfig {
   planCode: "FREE" | "PRO" | "PROPLUS";
   monthlySessionQuota: number;
   testsPerSession: number;
+  formsPerSession: number;
+  remindersPerSession: number;
+  customFormQuota: number;
   monthlyPrice: number;
   trialDays: number;
   updatedAt: string;
@@ -136,6 +139,9 @@ export const updatePlanConfig = (dto: {
   planCode: "FREE" | "PRO" | "PROPLUS";
   monthlySessionQuota: number;
   testsPerSession?: number;
+  formsPerSession?: number;
+  remindersPerSession?: number;
+  customFormQuota?: number;
   monthlyPrice?: number;
   trialDays?: number;
 }) =>
