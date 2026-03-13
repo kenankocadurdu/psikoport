@@ -14,6 +14,12 @@ import { NotificationModule } from '../modules/common/services/notification.modu
 
 const appointmentReminderQueue = BullModule.registerQueue({
   name: 'appointment-reminder-run',
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2000 },
+    removeOnComplete: 100,
+    removeOnFail: 500,
+  },
 });
 
 const appointmentNotificationQueue = BullModule.registerQueue({
@@ -54,6 +60,12 @@ const calendarSyncQueue = BullModule.registerQueue({
 
 const paymentReminderQueue = BullModule.registerQueue({
   name: 'payment-reminder-run',
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2000 },
+    removeOnComplete: 100,
+    removeOnFail: 500,
+  },
 });
 
 @Module({
