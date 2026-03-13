@@ -395,4 +395,190 @@ describe('PaymentsService', () => {
       });
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 4.2 getRevenueSummary
+  // -------------------------------------------------------------------------
+  describe('4.2 getRevenueSummary', () => {
+    const NOW = new Date('2025-06-15T12:00:00Z');
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(NOW);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    function makePayment(overrides: {
+      amount: number;
+      paidAmount?: number | null;
+      status?: string;
+    }) {
+      return {
+        amount: overrides.amount,
+        paidAmount: overrides.paidAmount ?? null,
+        status: overrides.status ?? 'PENDING',
+      };
+    }
+
+    describe('aggregation calculations', () => {
+      it('returns totalRevenue as sum of all amounts', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([
+          makePayment({ amount: 100, status: 'PAID' }),
+          makePayment({ amount: 200, status: 'PAID' }),
+          makePayment({ amount: 50, status: 'PENDING' }),
+        ] as never);
+
+        const result = await service.getRevenueSummary(TENANT_ID, 'monthly');
+
+        expect(result.totalRevenue).toBe(350);
+      });
+
+      it('returns collected as sum of paidAmount (non-null entries only)', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([
+          makePayment({ amount: 100, paidAmount: 100, status: 'PAID' }),
+          makePayment({ amount: 200, paidAmount: 150, status: 'PARTIAL' }),
+          makePayment({ amount: 50, paidAmount: null, status: 'PENDING' }),
+        ] as never);
+
+        const result = await service.getRevenueSummary(TENANT_ID, 'monthly');
+
+        expect(result.collected).toBe(250);
+      });
+
+      it('returns pending = totalRevenue - collected', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([
+          makePayment({ amount: 300, paidAmount: 200, status: 'PARTIAL' }),
+        ] as never);
+
+        const result = await service.getRevenueSummary(TENANT_ID, 'monthly');
+
+        expect(result.pending).toBe(100);
+      });
+
+      it('returns unpaidCount as count of PENDING-status payments only', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([
+          makePayment({ amount: 100, status: 'PENDING' }),
+          makePayment({ amount: 200, status: 'PAID' }),
+          makePayment({ amount: 50, status: 'PENDING' }),
+          makePayment({ amount: 75, status: 'PARTIAL' }),
+        ] as never);
+
+        const result = await service.getRevenueSummary(TENANT_ID, 'monthly');
+
+        expect(result.unpaidCount).toBe(2);
+      });
+
+      it('returns zeros when no payments exist', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        const result = await service.getRevenueSummary(TENANT_ID, 'weekly');
+
+        expect(result).toMatchObject({
+          totalRevenue: 0,
+          collected: 0,
+          pending: 0,
+          unpaidCount: 0,
+        });
+      });
+    });
+
+    describe('date range — weekly', () => {
+      it('queries from 7 days ago for weekly period', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        await service.getRevenueSummary(TENANT_ID, 'weekly');
+
+        const expectedStart = new Date(NOW.getTime() - 7 * 24 * 60 * 60 * 1000);
+        expect(prisma.sessionPayment.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              sessionDate: { gte: expectedStart },
+            }),
+          }),
+        );
+      });
+
+      it('returns period="weekly" and correct from/to in result', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        const result = await service.getRevenueSummary(TENANT_ID, 'weekly');
+
+        const expectedStart = new Date(NOW.getTime() - 7 * 24 * 60 * 60 * 1000);
+        expect(result.period).toBe('weekly');
+        expect(result.from).toBe(expectedStart.toISOString());
+        expect(result.to).toBe(NOW.toISOString());
+      });
+    });
+
+    describe('date range — monthly', () => {
+      it('queries from first day of current month for monthly period', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        await service.getRevenueSummary(TENANT_ID, 'monthly');
+
+        // NOW = 2025-06-15 → first day of June 2025
+        const expectedStart = new Date(2025, 5, 1); // month is 0-indexed
+        expect(prisma.sessionPayment.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              sessionDate: { gte: expectedStart },
+            }),
+          }),
+        );
+      });
+
+      it('returns period="monthly" in result', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        const result = await service.getRevenueSummary(TENANT_ID, 'monthly');
+
+        expect(result.period).toBe('monthly');
+      });
+    });
+
+    describe('psychologistId filter', () => {
+      it('adds psychologistId to query when provided', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        await service.getRevenueSummary(TENANT_ID, 'monthly', PSYCHOLOGIST_ID);
+
+        expect(prisma.sessionPayment.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ psychologistId: PSYCHOLOGIST_ID }),
+          }),
+        );
+      });
+
+      it('does not add psychologistId to query when not provided', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        await service.getRevenueSummary(TENANT_ID, 'monthly');
+
+        const call = prisma.sessionPayment.findMany.mock.calls[0][0] as {
+          where: Record<string, unknown>;
+        };
+        expect(call.where).not.toHaveProperty('psychologistId');
+      });
+    });
+
+    describe('query filters', () => {
+      it('always filters by tenantId and status in [PENDING, PAID, PARTIAL]', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        await service.getRevenueSummary(TENANT_ID, 'monthly');
+
+        expect(prisma.sessionPayment.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              tenantId: TENANT_ID,
+              status: { in: ['PENDING', 'PAID', 'PARTIAL'] },
+            }),
+          }),
+        );
+      });
+    });
+  });
 });
