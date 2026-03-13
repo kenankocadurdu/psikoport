@@ -7,7 +7,10 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { QuotaGuard } from '../common/guards/quota.guard';
+import { Quota } from '../common/decorators/quota.decorator';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -48,6 +51,8 @@ export class ClientsController {
   }
 
   @Roles('psychologist')
+  @UseGuards(QuotaGuard)
+  @Quota('clients')
   @Post()
   async create(@Body() dto: CreateClientDto, @CurrentUser() user: JwtUser) {
     return this.clientsService.create(dto, user.tenantId);

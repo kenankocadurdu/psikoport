@@ -6,6 +6,7 @@ import {
   Param,
   Query,
   Body,
+  UseGuards,
 } from '@nestjs/common';
 import { FormDefinitionsService } from './form-definitions.service';
 import { FormDefinitionQueryDto } from './dto/form-definition-query.dto';
@@ -13,6 +14,8 @@ import { CreateFormDefinitionDto } from './dto/create-form-definition.dto';
 import { UpdateFormDefinitionDto } from './dto/update-form-definition.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { QuotaGuard } from '../../common/guards/quota.guard';
+import { Quota } from '../../common/decorators/quota.decorator';
 import type { JwtUser } from '../../common/types/request.types';
 
 @Controller('form-definitions')
@@ -37,6 +40,8 @@ export class FormDefinitionsController {
   }
 
   @Roles('psychologist')
+  @UseGuards(QuotaGuard)
+  @Quota('custom_forms')
   @Post()
   async create(
     @Body() dto: CreateFormDefinitionDto,

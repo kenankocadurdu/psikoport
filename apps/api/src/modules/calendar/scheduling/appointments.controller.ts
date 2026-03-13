@@ -6,7 +6,10 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { QuotaGuard } from '../../common/guards/quota.guard';
+import { Quota } from '../../common/decorators/quota.decorator';
 import { AppointmentsService } from './appointments.service';
 import { AvailabilityService } from './availability.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -29,6 +32,8 @@ export class AppointmentsController {
 
   @Post()
   @Roles('psychologist')
+  @UseGuards(QuotaGuard)
+  @Quota('sessions')
   @AuditLog({ action: 'create', resourceType: 'appointment' })
   async create(
     @Body() dto: CreateAppointmentDto,
