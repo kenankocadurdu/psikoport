@@ -367,9 +367,11 @@ model FormSubmission {
   crisisAcknowledgedAt  DateTime?
   completionStatus      CompletionStatus @default(DRAFT)
   submittedAt           DateTime?
-  formVersion       Int              @default(1)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  formVersion              Int              @default(1)
+  scoringConfigSnapshot    Json?            @map("scoring_config_snapshot")
+  schemaSnapshot           Json?            @map("schema_snapshot")
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
 
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
