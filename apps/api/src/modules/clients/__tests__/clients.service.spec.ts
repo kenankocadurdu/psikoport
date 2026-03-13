@@ -335,4 +335,107 @@ describe('ClientsService', () => {
       });
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 5.3 softDelete()
+  // -------------------------------------------------------------------------
+  describe('5.3 softDelete()', () => {
+    function makeExistingClient(overrides: Record<string, unknown> = {}) {
+      return {
+        id: CLIENT_ID,
+        tenantId: TENANT_ID,
+        status: 'ACTIVE',
+        deletedAt: null,
+        ...overrides,
+      };
+    }
+
+    describe('happy path', () => {
+      it('updates deletedAt and status=INACTIVE for an existing client', async () => {
+        prisma.client.findFirst.mockResolvedValue(makeExistingClient());
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.softDelete(CLIENT_ID, TENANT_ID);
+
+        expect(prisma.client.update).toHaveBeenCalledWith({
+          where: { id: CLIENT_ID },
+          data: expect.objectContaining({
+            status: 'INACTIVE',
+          }),
+        });
+        const updateData = prisma.client.update.mock.calls[0][0].data as Record<string, unknown>;
+        expect(updateData.deletedAt).toBeInstanceOf(Date);
+      });
+
+      it('returns { success: true } on success', async () => {
+        prisma.client.findFirst.mockResolvedValue(makeExistingClient());
+        prisma.client.update.mockResolvedValue({} as never);
+
+        const result = await service.softDelete(CLIENT_ID, TENANT_ID);
+
+        expect(result).toEqual({ success: true });
+      });
+
+      it('sets deletedAt to approximately now', async () => {
+        jest.useFakeTimers();
+        const NOW = new Date('2025-08-01T10:00:00Z');
+        jest.setSystemTime(NOW);
+
+        prisma.client.findFirst.mockResolvedValue(makeExistingClient());
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.softDelete(CLIENT_ID, TENANT_ID);
+
+        const updateData = prisma.client.update.mock.calls[0][0].data as Record<string, unknown>;
+        expect(updateData.deletedAt).toEqual(NOW);
+
+        jest.useRealTimers();
+      });
+    });
+
+    describe('not found', () => {
+      it('throws NotFoundException when client does not exist', async () => {
+        prisma.client.findFirst.mockResolvedValue(null);
+
+        await expect(service.softDelete(CLIENT_ID, TENANT_ID)).rejects.toThrow(
+          NotFoundException,
+        );
+        expect(prisma.client.update).not.toHaveBeenCalled();
+      });
+
+      it('throws NotFoundException when client belongs to a different tenant', async () => {
+        // findFirst with { id, tenantId } returns null for wrong tenant
+        prisma.client.findFirst.mockResolvedValue(null);
+
+        await expect(service.softDelete(CLIENT_ID, 'other-tenant')).rejects.toThrow(
+          NotFoundException,
+        );
+      });
+    });
+
+    describe('query correctness', () => {
+      it('looks up client by id and tenantId (no deletedAt filter)', async () => {
+        // softDelete intentionally does NOT filter deletedAt — re-deleting is idempotent
+        prisma.client.findFirst.mockResolvedValue(makeExistingClient());
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.softDelete(CLIENT_ID, TENANT_ID);
+
+        expect(prisma.client.findFirst).toHaveBeenCalledWith({
+          where: { id: CLIENT_ID, tenantId: TENANT_ID },
+        });
+      });
+
+      it('updates by id only (no tenantId in update where clause)', async () => {
+        prisma.client.findFirst.mockResolvedValue(makeExistingClient());
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.softDelete(CLIENT_ID, TENANT_ID);
+
+        expect(prisma.client.update).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { id: CLIENT_ID } }),
+        );
+      });
+    });
+  });
 });
