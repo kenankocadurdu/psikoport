@@ -563,14 +563,15 @@ model SessionPayment {
 }
 
 model PaymentSettings {
-  id               String   @id @default(cuid())
-  tenantId         String
-  psychologistId   String
-  defaultSessionFee Decimal? @db.Decimal(10, 2)
-  currency         String   @default("TRY")
-  reminderDays     Int      @default(3)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  tenantId            String
+  psychologistId      String
+  defaultSessionFee   Decimal? @db.Decimal(10, 2)
+  currency            String   @default("TRY")
+  supportedCurrencies String[] @default(["TRY"])
+  reminderDays        Int      @default(3)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   psychologist User   @relation(fields: [psychologistId], references: [id], onDelete: Cascade)

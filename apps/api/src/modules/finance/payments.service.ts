@@ -46,10 +46,14 @@ export class PaymentsService {
       : null;
 
     const amount = clientFee ?? psychologistFee ?? tenantFee ?? 0;
-    const currency =
+    const preferredCurrency =
       paymentSettings?.currency ??
       appointment.tenant.defaultCurrency ??
       'TRY';
+    const supported: string[] = (paymentSettings as any)?.supportedCurrencies ?? ['TRY'];
+    const currency = supported.includes(preferredCurrency)
+      ? preferredCurrency
+      : (supported[0] ?? 'TRY');
 
     const existing = await this.prisma.sessionPayment.findUnique({
       where: { appointmentId },
