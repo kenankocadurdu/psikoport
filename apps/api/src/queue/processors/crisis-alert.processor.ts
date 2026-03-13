@@ -1,6 +1,6 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationService } from '../../modules/common/services/notification.service';
@@ -25,12 +25,24 @@ export class CrisisAlertProcessor extends WorkerHost {
     private readonly notification: NotificationService,
     private readonly auditLog: AuditLogService,
     private readonly idempotencyGuard: IdempotencyGuard,
+    @InjectQueue('crisis-alert') private readonly crisisQueue: Queue,
   ) {
     super();
   }
 
   async process(job: Job<CrisisAlertJobData>): Promise<void> {
     const { submissionId, tenantId } = job.data;
+
+    if (job.name === 'escalation') {
+      const submission = await this.prisma.formSubmission.findUnique({
+        where: { id: submissionId },
+        select: { crisisAcknowledgedAt: true },
+      });
+      if (!submission || submission.crisisAcknowledgedAt !== null) {
+        this.logger.log(`Escalation skipped (acknowledged): crisis:${submissionId}`);
+        return;
+      }
+    }
 
     if (!(await this.idempotencyGuard.acquireLock(`idem:crisis:${submissionId}`, 3600))) {
       this.logger.warn(`Duplicate job skipped: crisis:${submissionId}`);
@@ -85,6 +97,14 @@ export class CrisisAlertProcessor extends WorkerHost {
       });
 
       this.logger.warn(`Crisis alert sent for submission ${submissionId}`);
+
+      if (job.name !== 'escalation') {
+        await this.crisisQueue.add(
+          'escalation',
+          { submissionId, tenantId },
+          { delay: 30 * 60 * 1000, jobId: `crisis-esc:${submissionId}` },
+        );
+      }
     });
   }
 }
