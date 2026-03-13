@@ -1,0 +1,91 @@
+{
+  "errors": {
+    "notFound": "Record not found",
+    "forbidden": "You do not have permission to perform this action",
+    "unauthorized": "Authentication required",
+    "conflict": "This record already exists",
+    "badRequest": "Invalid request",
+    "internalError": "An internal server error occurred",
+    "planLimitExceeded": "You have reached your plan limit",
+    "quotaExceeded": "Your {{resource}} quota is exhausted",
+    "invalidToken": "Invalid or expired token",
+    "tenantInactive": "Your account has been deactivated",
+    "sessionQuotaExceeded": "Your monthly session quota is exhausted",
+    "customFormQuotaExceeded": "You have reached your custom form creation limit",
+    "clientNotFound": "Client not found",
+    "appointmentNotFound": "Appointment not found",
+    "paymentNotFound": "Payment not found",
+    "formNotFound": "Form not found",
+    "noteNotFound": "Note not found",
+    "inviteInvalid": "Invalid invitation link",
+    "inviteExpired": "Invitation has expired",
+    "inviteAlreadyAccepted": "This invitation has already been accepted",
+    "emailAlreadyRegistered": "This email address is already registered",
+    "invalidCredentials": "Invalid email or password",
+    "tenantAccessDenied": "You do not have access to this account"
+  },
+  "emails": {
+    "invite": {
+      "subject": "{{inviterName}} invited you to join {{tenantName}}",
+      "greeting": "Hello,",
+      "body": "{{inviterName}} is inviting you to work as an assistant within {{tenantName}}.",
+      "cta": "Accept Invitation",
+      "expiry": "This invitation will expire in 7 days.",
+      "ignore": "If you did not request this invitation, you can safely ignore it."
+    },
+    "appointmentReminder": {
+      "subject": "Appointment Reminder — {{date}}",
+      "greeting": "Dear {{clientName}},",
+      "body": "You have an appointment on {{date}} at {{time}}.",
+      "location": "Location: {{location}}",
+      "cancel": "Please contact us if you need to cancel your appointment."
+    },
+    "paymentReminder": {
+      "subject": "Payment Reminder — {{amount}} {{currency}}",
+      "greeting": "Dear {{clientName}},",
+      "body": "A payment of {{amount}} {{currency}} is pending for your session on {{sessionDate}}.",
+      "contact": "Please contact us for payment or questions."
+    },
+    "licenseApproved": {
+      "subject": "Your License Has Been Approved",
+      "body": "Your license document has been reviewed and approved. You can now use all features."
+    },
+    "licenseRejected": {
+      "subject": "Regarding Your License Document",
+      "body": "Your license document was reviewed but could not be approved. Please upload a current and valid document."
+    }
+  },
+  "crisis": {
+    "alert": {
+      "title": "Crisis Alert",
+      "body": "A high-risk score was detected for client {{clientName}} (Score: {{score}}).",
+      "form": "Form: {{formTitle}}",
+      "submittedAt": "Date: {{date}}",
+      "action": "Please contact your client as soon as possible.",
+      "flags": "Risk Factors: {{flags}}"
+    },
+    "escalation": {
+      "title": "CRISIS ESCALATION ALERT",
+      "body": "The crisis alert for {{clientName}} was not acknowledged within 30 minutes.",
+      "action": "Immediate intervention may be required. Please call your client right away."
+    },
+    "acknowledged": {
+      "title": "Crisis Alert Acknowledged",
+      "body": "Acknowledged by {{acknowledgedBy}} on {{date}}.",
+      "notes": "Notes: {{notes}}"
+    }
+  },
+  "plans": {
+    "free": "Free",
+    "pro": "Professional",
+    "proplus": "Professional Plus",
+    "sessionQuota": "{{quota}} sessions per month",
+    "trialDays": "{{days}}-day free trial"
+  },
+  "common": {
+    "success": "Operation completed successfully",
+    "deleted": "Record deleted",
+    "updated": "Record updated",
+    "created": "Record created"
+  }
+}

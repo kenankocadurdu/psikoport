@@ -1,0 +1,91 @@
+{
+  "errors": {
+    "notFound": "Kayıt bulunamadı",
+    "forbidden": "Bu işlem için yetkiniz yok",
+    "unauthorized": "Kimlik doğrulama gerekli",
+    "conflict": "Bu kayıt zaten mevcut",
+    "badRequest": "Geçersiz istek",
+    "internalError": "Sunucu hatası oluştu",
+    "planLimitExceeded": "Plan limitinize ulaştınız",
+    "quotaExceeded": "{{resource}} kotanız doldu",
+    "invalidToken": "Geçersiz veya süresi dolmuş token",
+    "tenantInactive": "Hesabınız devre dışı bırakılmış",
+    "sessionQuotaExceeded": "Bu ayki seans kotanız doldu",
+    "customFormQuotaExceeded": "Özel form oluşturma limitinize ulaştınız",
+    "clientNotFound": "Danışan bulunamadı",
+    "appointmentNotFound": "Randevu bulunamadı",
+    "paymentNotFound": "Ödeme bulunamadı",
+    "formNotFound": "Form bulunamadı",
+    "noteNotFound": "Not bulunamadı",
+    "inviteInvalid": "Geçersiz davet bağlantısı",
+    "inviteExpired": "Davet süresi dolmuş",
+    "inviteAlreadyAccepted": "Bu davet zaten kabul edilmiş",
+    "emailAlreadyRegistered": "Bu e-posta adresi zaten kayıtlı",
+    "invalidCredentials": "Geçersiz e-posta veya şifre",
+    "tenantAccessDenied": "Bu hesaba erişim izniniz yok"
+  },
+  "emails": {
+    "invite": {
+      "subject": "{{inviterName}} sizi {{tenantName}} ekibine davet etti",
+      "greeting": "Merhaba,",
+      "body": "{{inviterName}}, sizi {{tenantName}} bünyesinde asistan olarak çalışmaya davet ediyor.",
+      "cta": "Daveti Kabul Et",
+      "expiry": "Bu davet 7 gün içinde geçerliliğini yitirecektir.",
+      "ignore": "Bu daveti siz talep etmediyseniz görmezden gelebilirsiniz."
+    },
+    "appointmentReminder": {
+      "subject": "Randevu Hatırlatması — {{date}}",
+      "greeting": "Sayın {{clientName}},",
+      "body": "{{date}} tarihinde saat {{time}} için randevunuz bulunmaktadır.",
+      "location": "Konum: {{location}}",
+      "cancel": "Randevunuzu iptal etmek için lütfen bizimle iletişime geçin."
+    },
+    "paymentReminder": {
+      "subject": "Ödeme Hatırlatması — {{amount}} {{currency}}",
+      "greeting": "Sayın {{clientName}},",
+      "body": "{{sessionDate}} tarihli seans için {{amount}} {{currency}} tutarında ödeme beklenmektedir.",
+      "contact": "Ödeme veya soru için lütfen bizimle iletişime geçin."
+    },
+    "licenseApproved": {
+      "subject": "Lisansınız Onaylandı",
+      "body": "Lisans belgeniz incelendi ve onaylandı. Artık tüm özellikleri kullanabilirsiniz."
+    },
+    "licenseRejected": {
+      "subject": "Lisans Belgeniz Hakkında",
+      "body": "Lisans belgeniz incelendi ancak onaylanamadı. Lütfen güncel ve geçerli bir belge yükleyin."
+    }
+  },
+  "crisis": {
+    "alert": {
+      "title": "Kriz Uyarısı",
+      "body": "{{clientName}} adlı danışan için yüksek risk skoru tespit edildi (Skor: {{score}}).",
+      "form": "Form: {{formTitle}}",
+      "submittedAt": "Tarih: {{date}}",
+      "action": "Lütfen danışanınızla en kısa sürede iletişime geçin.",
+      "flags": "Risk Faktörleri: {{flags}}"
+    },
+    "escalation": {
+      "title": "KRİZ YÜKSELTME UYARISI",
+      "body": "{{clientName}} için kriz uyarısı 30 dakika içinde yanıtlanmadı.",
+      "action": "Acil müdahale gerekebilir. Lütfen derhal danışanınızı arayın."
+    },
+    "acknowledged": {
+      "title": "Kriz Uyarısı Alındı",
+      "body": "{{acknowledgedBy}} tarafından {{date}} tarihinde yanıtlandı.",
+      "notes": "Notlar: {{notes}}"
+    }
+  },
+  "plans": {
+    "free": "Ücretsiz",
+    "pro": "Profesyonel",
+    "proplus": "Profesyonel Plus",
+    "sessionQuota": "Aylık {{quota}} seans hakkı",
+    "trialDays": "{{days}} gün ücretsiz deneme"
+  },
+  "common": {
+    "success": "İşlem başarıyla tamamlandı",
+    "deleted": "Kayıt silindi",
+    "updated": "Kayıt güncellendi",
+    "created": "Kayıt oluşturuldu"
+  }
+}
