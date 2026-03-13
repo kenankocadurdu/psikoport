@@ -2,7 +2,9 @@ name: psikoport
 
 services:
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile.postgres
     container_name: psikoport-postgres
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -14,7 +16,7 @@ services:
       postgres
         -c wal_level=replica
         -c archive_mode=on
-        -c archive_command='test ! -f /var/lib/postgresql/wal_archive/%f && cp %p /var/lib/postgresql/wal_archive/%f'
+        -c archive_command='. /etc/walg-env.sh && wal-g wal-push %p'
         -c archive_timeout=60
     volumes:
       - postgres:/var/lib/postgresql/data
