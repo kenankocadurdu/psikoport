@@ -20,7 +20,7 @@ import { ProfileModule } from './modules/profile/profile.module';
 import { CrisisModule } from './modules/crisis/crisis.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { BlogModule } from './modules/blog/blog.module';
-import { QueueModule } from './queue/queue.module';
+import { QueueProducerModule } from './queue/queue-producer.module';
 import { JwtAuthGuard } from './modules/common/guards/auth.guard';
 import { TwoFactorGuard } from './modules/common/guards/two-factor.guard';
 import { RolesGuard } from './modules/common/guards/roles.guard';
@@ -65,7 +65,7 @@ import { TenantContextMiddleware } from './modules/common/middlewares/tenant-con
     CrisisModule,
     AdminModule,
     BlogModule,
-    QueueModule,
+    QueueProducerModule,
   ],
   controllers: [AppController],
   providers: [
