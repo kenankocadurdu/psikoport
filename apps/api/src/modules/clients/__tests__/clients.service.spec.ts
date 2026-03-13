@@ -438,4 +438,144 @@ describe('ClientsService', () => {
       });
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 5.4 cryptoShred()
+  // -------------------------------------------------------------------------
+  describe('5.4 cryptoShred()', () => {
+    const existingClient = {
+      id: CLIENT_ID,
+      tenantId: TENANT_ID,
+    };
+
+    describe('DEK nullification', () => {
+      it('sets encryptedClientDek and clientDekNonce to null', async () => {
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.cryptoShred(CLIENT_ID, TENANT_ID, USER_ID);
+
+        expect(prisma.client.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              encryptedClientDek: null,
+              clientDekNonce: null,
+            }),
+          }),
+        );
+      });
+
+      it('sets anonymizedAt to now', async () => {
+        jest.useFakeTimers();
+        const NOW = new Date('2025-09-01T08:00:00Z');
+        jest.setSystemTime(NOW);
+
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.cryptoShred(CLIENT_ID, TENANT_ID, USER_ID);
+
+        const data = prisma.client.update.mock.calls[0][0].data as Record<string, unknown>;
+        expect(data.anonymizedAt).toEqual(NOW);
+
+        jest.useRealTimers();
+      });
+
+      it('updates by clientId in where clause', async () => {
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.cryptoShred(CLIENT_ID, TENANT_ID, USER_ID);
+
+        expect(prisma.client.update).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { id: CLIENT_ID } }),
+        );
+      });
+    });
+
+    describe('DEK cache invalidation', () => {
+      it('calls dekCache.invalidate with key "client:<clientId>"', async () => {
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.cryptoShred(CLIENT_ID, TENANT_ID, USER_ID);
+
+        expect(dekCache.invalidate).toHaveBeenCalledWith(`client:${CLIENT_ID}`);
+        expect(dekCache.invalidate).toHaveBeenCalledTimes(1);
+      });
+
+      it('invalidates cache after the DB update', async () => {
+        const callOrder: string[] = [];
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockImplementation(async () => {
+          callOrder.push('update');
+          return {} as never;
+        });
+        dekCache.invalidate.mockImplementation(() => {
+          callOrder.push('invalidate');
+        });
+
+        await service.cryptoShred(CLIENT_ID, TENANT_ID, USER_ID);
+
+        expect(callOrder).toEqual(['update', 'invalidate']);
+      });
+    });
+
+    describe('audit log', () => {
+      it('creates an audit log entry with correct fields', async () => {
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.cryptoShred(CLIENT_ID, TENANT_ID, USER_ID);
+
+        expect(auditLog.logAction).toHaveBeenCalledWith({
+          tenantId: TENANT_ID,
+          userId: USER_ID,
+          action: 'crypto_shred',
+          resourceType: 'client',
+          resourceId: CLIENT_ID,
+        });
+      });
+
+      it('logs audit entry after cache invalidation', async () => {
+        const callOrder: string[] = [];
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+        dekCache.invalidate.mockImplementation(() => {
+          callOrder.push('invalidate');
+        });
+        auditLog.logAction.mockImplementation(async () => {
+          callOrder.push('audit');
+        });
+
+        await service.cryptoShred(CLIENT_ID, TENANT_ID, USER_ID);
+
+        expect(callOrder).toEqual(['invalidate', 'audit']);
+      });
+    });
+
+    describe('not found', () => {
+      it('throws NotFoundException when client does not exist', async () => {
+        prisma.client.findFirst.mockResolvedValue(null);
+
+        await expect(service.cryptoShred(CLIENT_ID, TENANT_ID, USER_ID)).rejects.toThrow(
+          NotFoundException,
+        );
+        expect(prisma.client.update).not.toHaveBeenCalled();
+        expect(dekCache.invalidate).not.toHaveBeenCalled();
+        expect(auditLog.logAction).not.toHaveBeenCalled();
+      });
+
+      it('looks up client by id and tenantId', async () => {
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.cryptoShred(CLIENT_ID, TENANT_ID, USER_ID);
+
+        expect(prisma.client.findFirst).toHaveBeenCalledWith({
+          where: { id: CLIENT_ID, tenantId: TENANT_ID },
+        });
+      });
+    });
+  });
 });
