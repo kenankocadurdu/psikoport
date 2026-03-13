@@ -658,3 +658,16 @@ model SystemConfig {
   updatedAt DateTime @updatedAt
   updatedBy String?
 }
+
+// --- Webhook Idempotency ---
+model ProcessedWebhookEvent {
+  id          String   @id @default(uuid())
+  provider    String   @db.VarChar(20)
+  eventId     String   @db.VarChar(255) @map("event_id")
+  eventType   String   @db.VarChar(100) @map("event_type")
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@unique([provider, eventId])
+  @@index([provider, eventId])
+  @@map("processed_webhook_events")
+}
