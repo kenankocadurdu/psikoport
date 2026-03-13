@@ -5,6 +5,7 @@ import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
+import { IORedisInstrumentation } from '@opentelemetry/instrumentation-ioredis';
 
 const exporter = new OTLPTraceExporter({
   url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318',
@@ -19,6 +20,7 @@ const sdk = new NodeSDK({
     new HttpInstrumentation(),
     new NestInstrumentation(),
     new PrismaInstrumentation(),
+    new IORedisInstrumentation(),
   ],
 });
 
