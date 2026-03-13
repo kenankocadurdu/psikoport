@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
+import { EncryptionService } from '../../common/services/encryption.service';
 import type { CreateNoteDto } from './dto/create-note.dto';
 import type { UpdateNoteMetaDto } from './dto/update-note-meta.dto';
 import type { NoteQueryDto } from './dto/note-query.dto';
@@ -11,7 +12,10 @@ function base64ToBuffer(base64: string): Buffer {
 
 @Injectable()
 export class NotesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly encryptionService: EncryptionService,
+  ) {}
 
   async create(
     clientId: string,
@@ -25,6 +29,21 @@ export class NotesService {
       throw new NotFoundException('Danışan bulunamadı');
     }
 
+    // Server-side encryption: frontend now sends plaintext in encryptedContent field.
+    // The field carries raw UTF-8 or base64-encoded content; we encrypt it here.
+    const plaintext = (() => {
+      try {
+        return base64ToBuffer(dto.encryptedContent).toString('utf8');
+      } catch {
+        return dto.encryptedContent;
+      }
+    })();
+
+    const { ciphertext, nonce, authTag } = await this.encryptionService.encrypt(
+      tenantId,
+      plaintext,
+    );
+
     const note = await this.prisma.consultationNote.create({
       data: {
         tenantId,
@@ -36,12 +55,13 @@ export class NotesService {
         symptomCategories: dto.symptomCategories ?? [],
         moodRating: dto.moodRating ?? null,
         durationMinutes: dto.durationMinutes ?? null,
-        encryptedContent: base64ToBuffer(dto.encryptedContent),
-        encryptedDek: base64ToBuffer(dto.encryptedDek),
-        contentNonce: base64ToBuffer(dto.contentNonce),
-        contentAuthTag: base64ToBuffer(dto.contentAuthTag),
-        dekNonce: base64ToBuffer(dto.dekNonce),
-        dekAuthTag: base64ToBuffer(dto.dekAuthTag),
+        encryptedContent: ciphertext,
+        contentNonce: nonce,
+        contentAuthTag: authTag,
+        // DEK envelope unused for server-side encryption; empty sentinel marks new format
+        encryptedDek: Buffer.alloc(0),
+        dekNonce: Buffer.alloc(0),
+        dekAuthTag: Buffer.alloc(0),
       },
     });
     return { id: note.id };
@@ -143,12 +163,15 @@ export class NotesService {
     symptomCategories: string[];
     moodRating: number | null;
     durationMinutes: number | null;
-    encryptedContent: string;
-    encryptedDek: string;
-    contentNonce: string;
-    contentAuthTag: string;
-    dekNonce: string;
-    dekAuthTag: string;
+    // Server-side encrypted notes return plaintext content
+    content?: string;
+    // Legacy CSE notes return the raw envelope for client-side decryption
+    encryptedContent?: string;
+    encryptedDek?: string;
+    contentNonce?: string;
+    contentAuthTag?: string;
+    dekNonce?: string;
+    dekAuthTag?: string;
     createdAt: Date;
   }> {
     const note = await this.prisma.consultationNote.findFirst({
@@ -159,7 +182,7 @@ export class NotesService {
       throw new NotFoundException('Not bulunamadı');
     }
 
-    return {
+    const base = {
       id: note.id,
       sessionDate: note.sessionDate,
       sessionNumber: note.sessionNumber,
@@ -168,13 +191,29 @@ export class NotesService {
       symptomCategories: note.symptomCategories,
       moodRating: note.moodRating,
       durationMinutes: note.durationMinutes,
+      createdAt: note.createdAt,
+    };
+
+    // Server-side encrypted: encryptedDek sentinel is empty buffer
+    if (note.encryptedDek.length === 0) {
+      const content = await this.encryptionService.decrypt(
+        tenantId,
+        note.encryptedContent,
+        note.contentNonce,
+        note.contentAuthTag,
+      );
+      return { ...base, content };
+    }
+
+    // Legacy CSE note: return raw envelope for client-side decryption
+    return {
+      ...base,
       encryptedContent: note.encryptedContent.toString('base64'),
       encryptedDek: note.encryptedDek.toString('base64'),
       contentNonce: note.contentNonce.toString('base64'),
       contentAuthTag: note.contentAuthTag.toString('base64'),
       dekNonce: note.dekNonce.toString('base64'),
       dekAuthTag: note.dekAuthTag.toString('base64'),
-      createdAt: note.createdAt,
     };
   }
 
