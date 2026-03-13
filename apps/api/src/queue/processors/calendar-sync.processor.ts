@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
 import { CalendarSyncService } from '../../modules/calendar/calendar-sync/calendar-sync.service';
+import { runWithTenantContext } from '../../modules/common/context';
 
 export interface CalendarSyncJobData {
   integrationId?: string;
@@ -43,6 +44,7 @@ export class CalendarSyncProcessor extends WorkerHost {
   }
 
   private async syncIntegration(integrationId: string): Promise<void> {
+    // Bootstrap query: fetch integration without ALS context to obtain tenantId
     const integration = await this.prisma.calendarIntegration.findUnique({
       where: { id: integrationId },
     });
@@ -51,9 +53,12 @@ export class CalendarSyncProcessor extends WorkerHost {
       return;
     }
 
-    await this.prisma.$executeRaw`SELECT set_current_tenant(${integration.tenantId})`;
-
-    await this.calendarSync.pull(integrationId, integration.provider);
-    this.logger.log(`Calendar sync completed for integration ${integrationId}`);
+    await runWithTenantContext(
+      { tenantId: integration.tenantId, userId: 'system' },
+      async () => {
+        await this.calendarSync.pull(integrationId, integration.provider);
+        this.logger.log(`Calendar sync completed for integration ${integrationId}`);
+      },
+    );
   }
 }

@@ -6,6 +6,7 @@ import type { ScoringConfig } from '@psikoport/scoring-engine';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
+import { runWithTenantContext } from '../../modules/common/context';
 
 export interface ScoringJobData {
   submissionId: string;
@@ -37,53 +38,58 @@ export class ScoringProcessor extends WorkerHost {
   async process(job: Job<ScoringJobData>): Promise<void> {
     const { submissionId, formDefinitionId } = job.data;
 
+    // Bootstrap query runs without ALS context (no RLS) to obtain tenantId
     const submissionForTenant = await this.prisma.formSubmission.findUniqueOrThrow({
       where: { id: submissionId },
       select: { tenantId: true },
     });
-    await this.prisma.$executeRaw`SELECT set_current_tenant(${submissionForTenant.tenantId})`;
 
-    const [formDef, submission] = await Promise.all([
-      this.prisma.formDefinition.findUniqueOrThrow({
-        where: { id: formDefinitionId },
-        select: { scoringConfig: true },
-      }),
-      this.prisma.formSubmission.findUniqueOrThrow({
-        where: { id: submissionId },
-        select: { responses: true, tenantId: true },
-      }),
-    ]);
+    await runWithTenantContext(
+      { tenantId: submissionForTenant.tenantId, userId: 'system' },
+      async () => {
+        const [formDef, submission] = await Promise.all([
+          this.prisma.formDefinition.findUniqueOrThrow({
+            where: { id: formDefinitionId },
+            select: { scoringConfig: true },
+          }),
+          this.prisma.formSubmission.findUniqueOrThrow({
+            where: { id: submissionId },
+            select: { responses: true, tenantId: true },
+          }),
+        ]);
 
-    const scoringConfig = formDef.scoringConfig as ScoringConfig | null;
-    if (!scoringConfig || typeof scoringConfig !== 'object') {
-      this.logger.warn(`No scoring config for form ${formDefinitionId}`);
-      return;
-    }
+        const scoringConfig = formDef.scoringConfig as ScoringConfig | null;
+        if (!scoringConfig || typeof scoringConfig !== 'object') {
+          this.logger.warn(`No scoring config for form ${formDefinitionId}`);
+          return;
+        }
 
-    const responses = submission.responses as Record<string, unknown>;
-    const result = calculateScore(responses, scoringConfig);
+        const responses = submission.responses as Record<string, unknown>;
+        const result = calculateScore(responses, scoringConfig);
 
-    await this.prisma.formSubmission.update({
-      where: { id: submissionId },
-      data: {
-        scores: result as object,
-        severityLevel: result.severityLevel ?? null,
-        riskFlags: result.riskFlags,
+        await this.prisma.formSubmission.update({
+          where: { id: submissionId },
+          data: {
+            scores: result as object,
+            severityLevel: result.severityLevel ?? null,
+            riskFlags: result.riskFlags,
+          },
+        });
+
+        this.logger.log(
+          `Scored submission ${submissionId}: total=${result.totalScore}, severity=${result.severityLevel ?? 'n/a'}`,
+        );
+
+        if (result.riskFlags.includes('suicide_risk')) {
+          await this.crisisQueue.add('alert', {
+            submissionId,
+            formDefinitionId,
+            tenantId: submission.tenantId,
+            riskFlags: result.riskFlags,
+          });
+          this.logger.warn(`Crisis protocol triggered for submission ${submissionId}`);
+        }
       },
-    });
-
-    this.logger.log(
-      `Scored submission ${submissionId}: total=${result.totalScore}, severity=${result.severityLevel ?? 'n/a'}`,
     );
-
-    if (result.riskFlags.includes('suicide_risk')) {
-      await this.crisisQueue.add('alert', {
-        submissionId,
-        formDefinitionId,
-        tenantId: submission.tenantId,
-        riskFlags: result.riskFlags,
-      });
-      this.logger.warn(`Crisis protocol triggered for submission ${submissionId}`);
-    }
   }
 }
