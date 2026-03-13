@@ -578,4 +578,123 @@ describe('ClientsService', () => {
       });
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 5.5 anonymize()
+  // -------------------------------------------------------------------------
+  describe('5.5 anonymize()', () => {
+    const existingClient = { id: CLIENT_ID, tenantId: TENANT_ID };
+
+    describe('field masking', () => {
+      it('replaces firstName and lastName with ANONIM', async () => {
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.anonymize(CLIENT_ID, TENANT_ID);
+
+        expect(prisma.client.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              firstName: 'ANONIM',
+              lastName: 'ANONIM',
+            }),
+          }),
+        );
+      });
+
+      it('replaces phone with "0000"', async () => {
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.anonymize(CLIENT_ID, TENANT_ID);
+
+        const data = prisma.client.update.mock.calls[0][0].data as Record<string, unknown>;
+        expect(data.phone).toBe('0000');
+      });
+
+      it('nullifies email and tcKimlik', async () => {
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.anonymize(CLIENT_ID, TENANT_ID);
+
+        expect(prisma.client.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              email: null,
+              tcKimlik: null,
+            }),
+          }),
+        );
+      });
+
+      it('sets anonymizedAt to now', async () => {
+        jest.useFakeTimers();
+        const NOW = new Date('2025-10-01T09:00:00Z');
+        jest.setSystemTime(NOW);
+
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.anonymize(CLIENT_ID, TENANT_ID);
+
+        const data = prisma.client.update.mock.calls[0][0].data as Record<string, unknown>;
+        expect(data.anonymizedAt).toEqual(NOW);
+
+        jest.useRealTimers();
+      });
+    });
+
+    describe('return value and query correctness', () => {
+      it('returns { success: true }', async () => {
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        const result = await service.anonymize(CLIENT_ID, TENANT_ID);
+
+        expect(result).toEqual({ success: true });
+      });
+
+      it('looks up client by id and tenantId', async () => {
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.anonymize(CLIENT_ID, TENANT_ID);
+
+        expect(prisma.client.findFirst).toHaveBeenCalledWith({
+          where: { id: CLIENT_ID, tenantId: TENANT_ID },
+        });
+      });
+
+      it('updates by id only in where clause', async () => {
+        prisma.client.findFirst.mockResolvedValue(existingClient as never);
+        prisma.client.update.mockResolvedValue({} as never);
+
+        await service.anonymize(CLIENT_ID, TENANT_ID);
+
+        expect(prisma.client.update).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { id: CLIENT_ID } }),
+        );
+      });
+    });
+
+    describe('not found', () => {
+      it('throws NotFoundException when client does not exist', async () => {
+        prisma.client.findFirst.mockResolvedValue(null);
+
+        await expect(service.anonymize(CLIENT_ID, TENANT_ID)).rejects.toThrow(
+          NotFoundException,
+        );
+        expect(prisma.client.update).not.toHaveBeenCalled();
+      });
+
+      it('throws NotFoundException when client belongs to a different tenant', async () => {
+        prisma.client.findFirst.mockResolvedValue(null);
+
+        await expect(service.anonymize(CLIENT_ID, 'other-tenant')).rejects.toThrow(
+          NotFoundException,
+        );
+      });
+    });
+  });
 });
