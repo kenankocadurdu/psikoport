@@ -85,6 +85,14 @@ export class AuthController {
     return this.authService.me(user);
   }
 
+  @Post('switch-tenant')
+  async switchTenant(
+    @Body() body: { tenantId: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.authService.switchTenant(user.userId, body.tenantId);
+  }
+
   @Roles('psychologist')
   @Post('license/upload-url')
   async getLicenseUploadUrl(

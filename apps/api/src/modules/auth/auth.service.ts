@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -533,6 +534,31 @@ export class AuthService {
       role: user.role,
       is2faEnabled: user.is2faEnabled,
     };
+  }
+
+  /**
+   * Kullanıcının üye olduğu başka bir tenant'a geçiş yapar.
+   * TenantMember kaydı aktif değilse ForbiddenException fırlatır.
+   */
+  async switchTenant(
+    userId: string,
+    targetTenantId: string,
+  ): Promise<{ token: string }> {
+    const membership = await (this.prisma as any).tenantMember.findFirst({
+      where: { userId, tenantId: targetTenantId, isActive: true },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('Bu tenant\'a erişim izniniz yok');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Kullanıcı bulunamadı');
+    }
+
+    const token = this.issueLocalToken({ auth0Sub: user.auth0Sub, tenantId: targetTenantId });
+    return { token };
   }
 
   async getLicenseUploadUrl(
