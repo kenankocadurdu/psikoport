@@ -61,9 +61,14 @@ export class ScoringProcessor extends WorkerHost {
           }),
           this.prisma.formSubmission.findUniqueOrThrow({
             where: { id: submissionId },
-            select: { responses: true, tenantId: true },
+            select: { responses: true, tenantId: true, scores: true },
           }),
         ]);
+
+        if (submission.scores !== null) {
+          this.logger.warn(`Submission ${submissionId} already scored, skipping`);
+          return;
+        }
 
         const scoringConfig = formDef.scoringConfig as ScoringConfig | null;
         if (!scoringConfig || typeof scoringConfig !== 'object') {

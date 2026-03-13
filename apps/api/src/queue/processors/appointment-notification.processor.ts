@@ -23,6 +23,19 @@ export class AppointmentNotificationProcessor extends WorkerHost {
     const { appointmentId, tenantId, type, reason, videoMeetingUrl } = job.data;
 
     await runWithTenantContext({ tenantId, userId: 'system' }, async () => {
+      const appt = await this.prisma.appointment.findUnique({
+        where: { id: appointmentId },
+        select: { status: true },
+      });
+      if (!appt) {
+        this.logger.warn(`Appointment ${appointmentId} not found, skipping ${type} notification`);
+        return;
+      }
+      if (type !== 'cancelled' && appt.status !== 'SCHEDULED') {
+        this.logger.warn(`Appointment ${appointmentId} is ${appt.status}, skipping ${type} notification`);
+        return;
+      }
+
       if (type === 'created' && videoMeetingUrl) {
         await this.handleCreated(appointmentId, videoMeetingUrl);
       }

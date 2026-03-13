@@ -21,6 +21,9 @@ export class PaymentReminderProcessor extends WorkerHost {
   async process(job: Job<Record<string, never>>): Promise<void> {
     if (job.name !== 'run-daily') return;
 
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
     const tenants = await this.prisma.tenant.findMany({
       where: { isActive: true },
       select: { id: true },
@@ -47,6 +50,7 @@ export class PaymentReminderProcessor extends WorkerHost {
                 ),
               },
               amount: { gt: 0 },
+              updatedAt: { lt: todayStart },
             },
             include: {
               client: { select: { phone: true } },
@@ -63,6 +67,10 @@ export class PaymentReminderProcessor extends WorkerHost {
               msg,
               'payment-reminder',
             );
+            await this.prisma.sessionPayment.update({
+              where: { id: p.id },
+              data: { updatedAt: new Date() },
+            });
             totalSent++;
           }
         }
