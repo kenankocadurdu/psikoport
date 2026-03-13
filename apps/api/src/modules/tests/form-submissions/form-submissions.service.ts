@@ -112,7 +112,10 @@ export class FormSubmissionsService {
         submittedAt: new Date(),
         formVersion: formDef.version,
         riskFlags,
-      },
+        scoringConfigSnapshot: formDef.scoringConfig ?? null,
+        schemaSnapshot: formDef.schema,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
     });
 
     if (formDef.scoringConfig && typeof formDef.scoringConfig === 'object') {
@@ -160,7 +163,10 @@ export class FormSubmissionsService {
         completionStatus: 'COMPLETE',
         submittedAt: new Date(),
         ...(crisisFromForm && { riskFlags }),
-      },
+        scoringConfigSnapshot: formDef.scoringConfig ?? null,
+        schemaSnapshot: formDef.schema,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
     });
 
     if (
