@@ -11,11 +11,16 @@ import type { CreateClientDto } from './dto/create-client.dto';
 import { ImportClientRowDto } from './dto/import-clients.dto';
 import type { UpdateClientDto } from './dto/update-client.dto';
 import type { ClientQueryDto } from './dto/client-query.dto';
-import type { PaginatedResponse } from '../legal/audit-log.service';
+import { AuditLogService, type PaginatedResponse } from '../legal/audit-log.service';
+import { DekCacheService } from '../common/services/dek-cache.service';
 
 @Injectable()
 export class ClientsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+    private readonly dekCache: DekCacheService,
+  ) {}
 
   async create(
     dto: CreateClientDto,
@@ -322,5 +327,38 @@ export class ClientsService {
       },
     });
     return { success: true };
+  }
+
+  /** Kriptografik imha: danışan DEK'ini silerek tüm şifreli verileri erişilemez kılar. */
+  async cryptoShred(
+    clientId: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<void> {
+    const existing = await this.prisma.client.findFirst({
+      where: { id: clientId, tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Danışan bulunamadı');
+    }
+
+    await (this.prisma.client as any).update({
+      where: { id: clientId },
+      data: {
+        encryptedClientDek: null,
+        clientDekNonce: null,
+        anonymizedAt: new Date(),
+      },
+    });
+
+    this.dekCache.invalidate(`client:${clientId}`);
+
+    await this.auditLog.logAction({
+      tenantId,
+      userId,
+      action: 'crypto_shred',
+      resourceType: 'client',
+      resourceId: clientId,
+    });
   }
 }

@@ -73,4 +73,11 @@ export class ClientsController {
   async remove(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.clientsService.softDelete(id, user.tenantId);
   }
+
+  @Roles('psychologist')
+  @Delete(':id/crypto-shred')
+  async cryptoShred(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    await this.clientsService.cryptoShred(id, user.tenantId, user.userId);
+    return { success: true };
+  }
 }
