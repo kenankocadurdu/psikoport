@@ -266,4 +266,39 @@ export class SubscriptionService {
       orderBy: { startDate: 'desc' },
     });
   }
+
+  /** Belirli bir kaynak için kota kontrolü yapar. */
+  async checkQuota(
+    tenantId: string,
+    resource: 'clients' | 'sessions' | 'custom_forms',
+  ): Promise<{ allowed: boolean; current: number; limit: number }> {
+    if (resource === 'sessions') {
+      const usage = await this.getMonthlyUsage(tenantId);
+      return {
+        allowed: usage.remaining > 0,
+        current: usage.used,
+        limit: usage.total,
+      };
+    }
+
+    const sub = await this.getActiveSubscription(tenantId);
+    const planCode = sub?.planCode ?? 'FREE';
+    const planConfig = await this.getCurrentPlanConfig(planCode);
+
+    if (resource === 'clients') {
+      const current = await this.prisma.client.count({
+        where: { tenantId, deletedAt: null },
+      });
+      // No hard client limit in current plans — always allowed
+      const limit = Number.MAX_SAFE_INTEGER;
+      return { allowed: true, current, limit };
+    }
+
+    // custom_forms
+    const current = await this.prisma.formDefinition.count({
+      where: { tenantId, formType: 'CUSTOM' },
+    });
+    const limit = sub?.customFormQuota ?? planConfig.customFormQuota;
+    return { allowed: current < limit, current, limit };
+  }
 }
