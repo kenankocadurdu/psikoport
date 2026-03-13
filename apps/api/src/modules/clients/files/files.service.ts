@@ -1,14 +1,81 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import {
+  S3Client,
+  HeadObjectCommand,
+} from '@aws-sdk/client-s3';
 import { PrismaService } from '../../../database/prisma.service';
 import { StorageService } from '../../common/services/storage.service';
 
 @Injectable()
 export class FilesService {
+  private readonly s3: S3Client;
+  private readonly bucket: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
-  ) {}
+    private readonly config: ConfigService,
+  ) {
+    const endpoint = this.config.get<string>('S3_ENDPOINT');
+    this.bucket = this.config.get<string>('S3_BUCKET') ?? 'psikoport-files';
+    this.s3 = new S3Client({
+      region: this.config.get<string>('S3_REGION') ?? 'tr-istanbul',
+      ...(endpoint && { endpoint, forcePathStyle: true }),
+      credentials: this.config.get<string>('S3_ACCESS_KEY')
+        ? {
+            accessKeyId: this.config.get<string>('S3_ACCESS_KEY')!,
+            secretAccessKey: this.config.get<string>('S3_SECRET_KEY')!,
+          }
+        : undefined,
+    });
+  }
 
+  /** Step 1: Presigned PUT URL oluştur, DB kaydı OLUŞTURMA */
+  async generateUploadUrl(
+    tenantId: string,
+    clientId: string,
+    fileName: string,
+    mimeType: string,
+  ): Promise<{ uploadUrl: string; fileKey: string }> {
+    await this.assertClientBelongsToTenant(clientId, tenantId);
+    const fileKey = this.storage.buildKey(tenantId, clientId, fileName);
+    const { url } = await this.storage.generateUploadUrl(fileKey, mimeType);
+    return { uploadUrl: url, fileKey };
+  }
+
+  /** Step 2: S3'te dosyayı doğrula ve ClientFile kaydı oluştur */
+  async confirmUpload(
+    tenantId: string,
+    clientId: string,
+    userId: string,
+    fileKey: string,
+    metadata: { fileName: string; mimeType: string; fileSize: number },
+  ): Promise<{ fileId: string }> {
+    await this.assertClientBelongsToTenant(clientId, tenantId);
+
+    try {
+      await this.s3.send(new HeadObjectCommand({ Bucket: this.bucket, Key: fileKey }));
+    } catch {
+      throw new BadRequestException('Dosya S3\'te bulunamadı. Önce yükleyin.');
+    }
+
+    const file = await this.prisma.clientFile.create({
+      data: {
+        tenantId,
+        clientId,
+        fileName: metadata.fileName,
+        fileKey,
+        fileSize: metadata.fileSize,
+        mimeType: metadata.mimeType,
+        uploadedBy: userId,
+      },
+    });
+
+    return { fileId: file.id };
+  }
+
+  /** Legacy: tek adımda URL + DB kaydı (mevcut frontend ile uyumluluk) */
   async getUploadUrl(
     clientId: string,
     tenantId: string,
@@ -112,4 +179,12 @@ export class FilesService {
     });
   }
 
+  private async assertClientBelongsToTenant(clientId: string, tenantId: string): Promise<void> {
+    const client = await this.prisma.client.findFirst({
+      where: { id: clientId, tenantId },
+    });
+    if (!client) {
+      throw new NotFoundException('Danışan bulunamadı');
+    }
+  }
 }

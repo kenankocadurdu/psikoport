@@ -35,6 +35,37 @@ export class FilesController {
     );
   }
 
+  @AssistantForbidden()
+  @Post('generate-upload-url')
+  async generateUploadUrl(
+    @Param('clientId') clientId: string,
+    @Body() body: { fileName: string; mimeType: string; fileSize: number },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.filesService.generateUploadUrl(
+      user.tenantId,
+      clientId,
+      body.fileName,
+      body.mimeType,
+    );
+  }
+
+  @AssistantForbidden()
+  @Post('confirm')
+  async confirmUpload(
+    @Param('clientId') clientId: string,
+    @Body() body: { fileKey: string; fileName: string; mimeType: string; fileSize: number },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.filesService.confirmUpload(
+      user.tenantId,
+      clientId,
+      user.userId!,
+      body.fileKey,
+      { fileName: body.fileName, mimeType: body.mimeType, fileSize: body.fileSize },
+    );
+  }
+
   @Get()
   async list(
     @Param('clientId') clientId: string,
