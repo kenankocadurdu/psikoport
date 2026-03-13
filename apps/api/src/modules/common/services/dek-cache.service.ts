@@ -14,6 +14,8 @@ import { LRUCache } from 'lru-cache';
 @Injectable()
 export class DekCacheService {
   private readonly cache: LRUCache<string, Buffer>;
+  private hits = 0;
+  private misses = 0;
 
   constructor() {
     this.cache = new LRUCache<string, Buffer>({
@@ -23,7 +25,18 @@ export class DekCacheService {
   }
 
   get(tenantId: string): Buffer | undefined {
-    return this.cache.get(tenantId);
+    const value = this.cache.get(tenantId);
+    if (value !== undefined) {
+      this.hits++;
+    } else {
+      this.misses++;
+    }
+    return value;
+  }
+
+  getHitRatio(): number {
+    const total = this.hits + this.misses;
+    return total === 0 ? 0 : this.hits / total;
   }
 
   set(tenantId: string, dek: Buffer): void {
