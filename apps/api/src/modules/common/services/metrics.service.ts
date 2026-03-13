@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { metrics, Histogram, ObservableGauge } from '@opentelemetry/api';
+import { DekCacheService } from './dek-cache.service';
 
 @Injectable()
 export class MetricsService {
@@ -7,10 +8,9 @@ export class MetricsService {
   private readonly queueDepthGauge: ObservableGauge;
   private readonly cacheHitRatioGauge: ObservableGauge;
 
-  private _cacheHitRatio = 0;
   private _queueDepths: Record<string, number> = {};
 
-  constructor() {
+  constructor(private readonly dekCache: DekCacheService) {
     const meter = metrics.getMeter('psikoport');
 
     this.scoringDuration = meter.createHistogram('scoring_calculation_duration_ms', {
@@ -32,17 +32,14 @@ export class MetricsService {
       }
     });
 
+    // Pull live ratio directly from DekCacheService at collection time
     this.cacheHitRatioGauge.addCallback((result) => {
-      result.observe(this._cacheHitRatio);
+      result.observe(this.dekCache.getHitRatio());
     });
   }
 
   recordScoringDuration(ms: number): void {
     this.scoringDuration.record(ms);
-  }
-
-  updateCacheHitRatio(ratio: number): void {
-    this._cacheHitRatio = ratio;
   }
 
   updateQueueDepth(queue: string, depth: number): void {

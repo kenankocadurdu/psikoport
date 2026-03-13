@@ -1,15 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 
 @Injectable()
 export class StripeSubscriptionService {
   private readonly stripe: Stripe;
-  private readonly logger = new Logger(StripeSubscriptionService.name);
-
   constructor(private readonly config: ConfigService) {
     const secretKey = this.config.get<string>('STRIPE_SECRET_KEY') ?? '';
-    this.stripe = new Stripe(secretKey, { apiVersion: '2025-04-30.basil' });
+    this.stripe = new Stripe(secretKey, { apiVersion: '2026-02-25.clover' });
   }
 
   async createSubscription(

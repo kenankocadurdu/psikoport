@@ -1,5 +1,5 @@
+export type { TenantContext } from './tenant-context';
 export {
-  TenantContext,
   tenantContextStorage,
   getTenantContext,
   runWithTenantContext,

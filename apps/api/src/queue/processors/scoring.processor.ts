@@ -8,6 +8,7 @@ import { Queue } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
 import { runWithTenantContext } from '../../modules/common/context';
 import { IdempotencyGuard } from '../guards/idempotency.guard';
+import { MetricsService } from '../../modules/common/services/metrics.service';
 
 export interface ScoringJobData {
   submissionId: string;
@@ -25,6 +26,7 @@ export class ScoringProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     @InjectQueue('crisis-alert') private readonly crisisQueue: Queue,
     private readonly idempotencyGuard: IdempotencyGuard,
+    private readonly metrics: MetricsService,
   ) {
     super();
   }
@@ -77,7 +79,9 @@ export class ScoringProcessor extends WorkerHost {
         }
 
         const responses = submission.responses as Record<string, unknown>;
+        const t0 = Date.now();
         const result = calculateScore(responses, scoringConfig);
+        this.metrics.recordScoringDuration(Date.now() - t0);
 
         await this.prisma.formSubmission.update({
           where: { id: submissionId },

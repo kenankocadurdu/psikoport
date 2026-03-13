@@ -74,7 +74,7 @@ export class AvailabilityService {
       }),
       this.prisma.externalCalendarEvent.findMany({
         where: {
-          calendarIntegration: { userId: psychologistId },
+          psychologistId,
           deleted: false,
           startTime: { gte: rangeStart },
           endTime: { lte: rangeEnd },

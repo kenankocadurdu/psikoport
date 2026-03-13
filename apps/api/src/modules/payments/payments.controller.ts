@@ -5,11 +5,10 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  RawBodyRequest,
   Req,
   BadRequestException,
-  UseGuards,
 } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
 import { StripeService } from './stripe.service';
 import { WebhookIdempotencyService } from '../common/services/webhook-idempotency.service';
