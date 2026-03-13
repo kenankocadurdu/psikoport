@@ -365,4 +365,161 @@ describe('AvailabilityService', () => {
       });
     });
   });
+
+  // =========================================================================
+  // 2.3 setSlots()
+  // =========================================================================
+
+  describe('setSlots()', () => {
+    /**
+     * $transaction callback'i simüle eden tx mock'u.
+     * deleteMany ve createMany çağrılarını izleyebilmek için
+     * ana prisma mock'undan AYRI tanımlanır.
+     */
+    let tx: {
+      availabilitySlot: {
+        deleteMany: jest.Mock;
+        createMany: jest.Mock;
+      };
+    };
+
+    beforeEach(() => {
+      tx = {
+        availabilitySlot: {
+          deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+          createMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+      };
+
+      // $transaction callback'ini gerçekmiş gibi çağırır
+      prisma.$transaction.mockImplementation(
+        async (callback: (tx: typeof tx) => Promise<unknown>) => callback(tx),
+      );
+
+      // Varsayılan: psikolog tenant'a ait
+      prisma.user.findFirst.mockResolvedValue({ id: PSYCH_ID, tenantId: TENANT_ID });
+      prisma.availabilitySlot.count.mockResolvedValue(0);
+    });
+
+    // -----------------------------------------------------------------------
+    // Guard condition
+    // -----------------------------------------------------------------------
+
+    it('should throw NotFoundException when psychologist does not belong to tenant', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.setSlots(PSYCH_ID, [], TENANT_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should NOT call $transaction when psychologist guard fails', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      await expect(service.setSlots(PSYCH_ID, [], TENANT_ID)).rejects.toThrow();
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 27 — önce sil, sonra ekle
+    // -----------------------------------------------------------------------
+
+    it('should delete all existing slots before inserting new ones', async () => {
+      const newSlots = [
+        { dayOfWeek: 1, startTime: '09:00', endTime: '10:00' },
+        { dayOfWeek: 3, startTime: '14:00', endTime: '15:00' },
+      ];
+      prisma.availabilitySlot.count.mockResolvedValue(2);
+
+      await service.setSlots(PSYCH_ID, newSlots, TENANT_ID);
+
+      expect(tx.availabilitySlot.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { psychologistId: PSYCH_ID, tenantId: TENANT_ID },
+        }),
+      );
+    });
+
+    it('should call deleteMany before createMany within the transaction', async () => {
+      const newSlots = [{ dayOfWeek: 1, startTime: '09:00', endTime: '10:00' }];
+
+      await service.setSlots(PSYCH_ID, newSlots, TENANT_ID);
+
+      const deleteOrder = tx.availabilitySlot.deleteMany.mock.invocationCallOrder[0];
+      const createOrder = tx.availabilitySlot.createMany.mock.invocationCallOrder[0];
+      expect(deleteOrder).toBeLessThan(createOrder);
+    });
+
+    it('should call createMany with correctly mapped slot data', async () => {
+      const newSlots = [
+        { dayOfWeek: 1, startTime: '09:00', endTime: '10:00' },
+        { dayOfWeek: 3, startTime: '14:00', endTime: '15:30' },
+      ];
+      prisma.availabilitySlot.count.mockResolvedValue(2);
+
+      await service.setSlots(PSYCH_ID, newSlots, TENANT_ID);
+
+      expect(tx.availabilitySlot.createMany).toHaveBeenCalledWith({
+        data: [
+          { tenantId: TENANT_ID, psychologistId: PSYCH_ID, dayOfWeek: 1, startTime: '09:00', endTime: '10:00' },
+          { tenantId: TENANT_ID, psychologistId: PSYCH_ID, dayOfWeek: 3, startTime: '14:00', endTime: '15:30' },
+        ],
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    // Test 28 — boş array gönderildiğinde
+    // -----------------------------------------------------------------------
+
+    it('should delete existing slots but NOT call createMany when slots array is empty', async () => {
+      await service.setSlots(PSYCH_ID, [], TENANT_ID);
+
+      expect(tx.availabilitySlot.deleteMany).toHaveBeenCalled();
+      expect(tx.availabilitySlot.createMany).not.toHaveBeenCalled();
+    });
+
+    it('should return count=0 when empty slots array clears all availability', async () => {
+      prisma.availabilitySlot.count.mockResolvedValue(0);
+
+      const result = await service.setSlots(PSYCH_ID, [], TENANT_ID);
+
+      expect(result).toEqual({ count: 0 });
+    });
+
+    // -----------------------------------------------------------------------
+    // Dönen değer
+    // -----------------------------------------------------------------------
+
+    it('should return the count of slots after the transaction completes', async () => {
+      const newSlots = [
+        { dayOfWeek: 1, startTime: '09:00', endTime: '10:00' },
+        { dayOfWeek: 2, startTime: '11:00', endTime: '12:00' },
+        { dayOfWeek: 4, startTime: '15:00', endTime: '16:00' },
+      ];
+      prisma.availabilitySlot.count.mockResolvedValue(3);
+
+      const result = await service.setSlots(PSYCH_ID, newSlots, TENANT_ID);
+
+      expect(result).toEqual({ count: 3 });
+    });
+
+    it('should query count with psychologistId and tenantId filter', async () => {
+      await service.setSlots(PSYCH_ID, [], TENANT_ID);
+
+      expect(prisma.availabilitySlot.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { psychologistId: PSYCH_ID, tenantId: TENANT_ID },
+        }),
+      );
+    });
+
+    it('should run both delete and create inside a single $transaction call', async () => {
+      const newSlots = [{ dayOfWeek: 1, startTime: '09:00', endTime: '10:00' }];
+
+      await service.setSlots(PSYCH_ID, newSlots, TENANT_ID);
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+  });
 });
