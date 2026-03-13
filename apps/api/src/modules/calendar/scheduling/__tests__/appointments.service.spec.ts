@@ -716,4 +716,149 @@ describe('AppointmentsService', () => {
       expect(result).toEqual({ id: APPT_ID, status: 'COMPLETED' });
     });
   });
+
+  // =========================================================================
+  // 3.4 noShow()
+  // =========================================================================
+
+  describe('noShow()', () => {
+    const APPT_ID = 'appt-noshow-001';
+
+    const scheduledAppt = {
+      id: APPT_ID,
+      clientId: 'client-001',
+      psychologistId: 'psych-001',
+      tenantId: TENANT_ID,
+      startTime: new Date('2025-01-06T09:00:00'),
+      endTime: new Date('2025-01-06T09:30:00'),
+      status: 'SCHEDULED',
+      googleEventId: null,
+      durationMinutes: 30,
+    };
+
+    const noShowAppt = { ...scheduledAppt, status: 'NO_SHOW' };
+
+    beforeEach(() => {
+      prisma.appointment.findFirst.mockResolvedValue(scheduledAppt);
+      prisma.appointment.update.mockResolvedValue(noShowAppt);
+      prisma.sessionPayment.findUnique.mockResolvedValue(null);
+      subscriptionService.consumeSession.mockResolvedValue(undefined);
+    });
+
+    // -----------------------------------------------------------------------
+    // Guard conditions
+    // -----------------------------------------------------------------------
+
+    it('should throw ForbiddenException if appointment status is not SCHEDULED', async () => {
+      prisma.appointment.findFirst.mockResolvedValue({
+        ...scheduledAppt,
+        status: 'COMPLETED',
+      });
+
+      await expect(service.noShow(APPT_ID, TENANT_ID)).rejects.toThrow(
+        'Bu randevu gelmedi olarak işaretlenemez',
+      );
+    });
+
+    it('should throw NotFoundException if appointment is not found', async () => {
+      prisma.appointment.findFirst.mockResolvedValue(null);
+
+      await expect(service.noShow(APPT_ID, TENANT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // Durum güncellemesi
+    // -----------------------------------------------------------------------
+
+    it('should update appointment status to NO_SHOW', async () => {
+      await service.noShow(APPT_ID, TENANT_ID);
+
+      expect(prisma.appointment.update).toHaveBeenCalledWith({
+        where: { id: APPT_ID },
+        data: { status: 'NO_SHOW' },
+      });
+    });
+
+    it('should NOT call paymentsService.createFromAppointment (unlike complete)', async () => {
+      await service.noShow(APPT_ID, TENANT_ID);
+
+      expect(paymentsService.createFromAppointment).not.toHaveBeenCalled();
+    });
+
+    // -----------------------------------------------------------------------
+    // Stripe capturePayment — cezai bedel tahsili
+    // -----------------------------------------------------------------------
+
+    it('should capture Stripe payment as a no-show penalty when stripePaymentIntentId exists', async () => {
+      prisma.sessionPayment.findUnique.mockResolvedValue({
+        appointmentId: APPT_ID,
+        stripePaymentIntentId: 'pi_noshow_123',
+      });
+
+      await service.noShow(APPT_ID, TENANT_ID);
+
+      expect(stripeService.capturePayment).toHaveBeenCalledWith('pi_noshow_123');
+    });
+
+    it('should NOT call Stripe capturePayment when no payment record exists', async () => {
+      prisma.sessionPayment.findUnique.mockResolvedValue(null);
+
+      await service.noShow(APPT_ID, TENANT_ID);
+
+      expect(stripeService.capturePayment).not.toHaveBeenCalled();
+    });
+
+    it('should NOT call Stripe capturePayment when payment record has no intent ID', async () => {
+      prisma.sessionPayment.findUnique.mockResolvedValue({
+        appointmentId: APPT_ID,
+        stripePaymentIntentId: null,
+      });
+
+      await service.noShow(APPT_ID, TENANT_ID);
+
+      expect(stripeService.capturePayment).not.toHaveBeenCalled();
+    });
+
+    it('should continue no-show marking even if Stripe capturePayment throws', async () => {
+      prisma.sessionPayment.findUnique.mockResolvedValue({
+        stripePaymentIntentId: 'pi_failing',
+      });
+      stripeService.capturePayment.mockRejectedValue(new Error('Stripe timeout'));
+
+      const result = await service.noShow(APPT_ID, TENANT_ID);
+
+      expect(result.status).toBe('NO_SHOW');
+      expect(subscriptionService.consumeSession).toHaveBeenCalledWith(TENANT_ID);
+    });
+
+    // -----------------------------------------------------------------------
+    // Seans kotası düşürülür
+    // -----------------------------------------------------------------------
+
+    it('should consume session quota after marking as no-show', async () => {
+      await service.noShow(APPT_ID, TENANT_ID);
+
+      expect(subscriptionService.consumeSession).toHaveBeenCalledWith(TENANT_ID);
+    });
+
+    it('should consume session quota even when no Stripe payment record exists', async () => {
+      prisma.sessionPayment.findUnique.mockResolvedValue(null);
+
+      await service.noShow(APPT_ID, TENANT_ID);
+
+      expect(subscriptionService.consumeSession).toHaveBeenCalledTimes(1);
+    });
+
+    // -----------------------------------------------------------------------
+    // Dönen değer
+    // -----------------------------------------------------------------------
+
+    it('should return id and NO_SHOW status', async () => {
+      const result = await service.noShow(APPT_ID, TENANT_ID);
+
+      expect(result).toEqual({ id: APPT_ID, status: 'NO_SHOW' });
+    });
+  });
 });
