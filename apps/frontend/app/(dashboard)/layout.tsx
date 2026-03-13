@@ -3,6 +3,9 @@ import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { TwoFactorGuard } from "@/components/auth/two-factor-guard";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 
+export const fetchCache = 'default-no-store';
+export const dynamic = 'force-dynamic';
+
 export default function DashboardLayout({
   children,
 }: {
