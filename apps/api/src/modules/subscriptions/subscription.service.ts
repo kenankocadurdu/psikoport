@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { TenantPlan } from 'prisma-client';
 import { PrismaService } from '../../database/prisma.service';
+import { StripeSubscriptionService } from '../payments/stripe-subscription.service';
 
 const DEFAULT_QUOTAS: Record<TenantPlan, number> = {
   FREE: 25,
@@ -48,7 +49,10 @@ const DEFAULT_CUSTOM_FORM_QUOTA: Record<TenantPlan, number> = {
 export class SubscriptionService {
   private readonly logger = new Logger(SubscriptionService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stripeSubscription: StripeSubscriptionService,
+  ) {}
 
   /** Belirli plan için en güncel PlanConfig'i döndürür. Yoksa varsayılanları kullanır. */
   async getCurrentPlanConfig(planCode: TenantPlan): Promise<{
@@ -205,8 +209,93 @@ export class SubscriptionService {
       data: { plan: newPlan },
     });
 
+    // Stripe aboneliğini güncelle (opsiyonel — price ID yoksa atla)
+    const priceId = this.stripeSubscription.getPriceId(newPlan);
+    if (priceId) {
+      try {
+        const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+        if (tenant?.subscriptionId) {
+          await this.stripeSubscription.updateSubscription(tenant.subscriptionId, priceId);
+        }
+      } catch (err) {
+        this.logger.warn(`Stripe plan update failed for tenant ${tenantId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
     this.logger.log(
       `Plan yükseltildi: tenant=${tenantId} → ${newPlan} ek_kota=${config.monthlySessionQuota}`,
+    );
+  }
+
+  /**
+   * Plan düşürme (PRO→FREE veya PROPLUS→PRO).
+   * - Eski aboneliği kapatır, yeni oluşturur.
+   * - Bu ayki kota yeni planın kotasıyla değiştirilir.
+   * - Tenant.plan güncellenir.
+   */
+  async downgradePlan(tenantId: string, newPlan: TenantPlan) {
+    const config = await this.getCurrentPlanConfig(newPlan);
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
+    // Eski aboneliği kapat
+    await this.prisma.tenantSubscription.updateMany({
+      where: { tenantId, endDate: null },
+      data: { endDate: now },
+    });
+
+    // Yeni abonelik snapshot'ı
+    await this.prisma.tenantSubscription.create({
+      data: {
+        tenantId,
+        planCode: newPlan,
+        monthlySessionQuota: config.monthlySessionQuota,
+        testsPerSession: config.testsPerSession,
+        formsPerSession: config.formsPerSession,
+        remindersPerSession: config.remindersPerSession,
+        customFormQuota: config.customFormQuota,
+        startDate: now,
+      },
+    });
+
+    // Bu ayki bütçeyi yeni kota ile sıfırla (düşürme: mevcut kullanımı koru)
+    const existing = await this.prisma.monthlySessionBudget.findUnique({
+      where: { tenantId_year_month: { tenantId, year, month } },
+    });
+
+    if (existing) {
+      await this.prisma.monthlySessionBudget.update({
+        where: { tenantId_year_month: { tenantId, year, month } },
+        data: { totalQuota: config.monthlySessionQuota },
+      });
+    } else {
+      await this.prisma.monthlySessionBudget.create({
+        data: { tenantId, year, month, totalQuota: config.monthlySessionQuota },
+      });
+    }
+
+    // Tenant planını güncelle
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { plan: newPlan },
+    });
+
+    // Stripe aboneliğini güncelle
+    const priceId = this.stripeSubscription.getPriceId(newPlan);
+    if (priceId) {
+      try {
+        const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+        if (tenant?.subscriptionId) {
+          await this.stripeSubscription.updateSubscription(tenant.subscriptionId, priceId);
+        }
+      } catch (err) {
+        this.logger.warn(`Stripe downgrade failed for tenant ${tenantId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    this.logger.log(
+      `Plan düşürüldü: tenant=${tenantId} → ${newPlan} yeni_kota=${config.monthlySessionQuota}`,
     );
   }
 
