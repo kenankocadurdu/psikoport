@@ -711,6 +711,7 @@ describe('SubscriptionService', () => {
     // -----------------------------------------------------------------------
 
     describe('resource: custom_forms', () => {
+
       it('should return allowed=true when form count is below subscription quota', async () => {
         setupActiveSub({ planCode: 'PRO', customFormQuota: 5, endDate: null });
         prisma.planConfig.findFirst.mockResolvedValue(null);
@@ -787,6 +788,153 @@ describe('SubscriptionService', () => {
             where: expect.objectContaining({ tenantId: TENANT_ID, formType: 'CUSTOM' }),
           }),
         );
+      });
+    });
+  });
+
+  // =========================================================================
+  // 1.6 ensureMonthlyBudget()
+  // =========================================================================
+
+  describe('ensureMonthlyBudget()', () => {
+    const TENANT_ID = 'tenant-budget';
+
+    const mockUpsert = (returnValue = { tenantId: TENANT_ID, totalQuota: 25, usedCount: 0, year: 2025, month: 8 }) => {
+      prisma.monthlySessionBudget.upsert.mockResolvedValue(returnValue);
+    };
+
+    // -----------------------------------------------------------------------
+    // quota parametresi sağlandığında
+    // -----------------------------------------------------------------------
+
+    describe('when quota argument is provided', () => {
+      it('should skip subscription query and use provided quota directly', async () => {
+        mockUpsert();
+
+        await service.ensureMonthlyBudget(TENANT_ID, 100);
+
+        expect(prisma.tenantSubscription.findFirst).not.toHaveBeenCalled();
+      });
+
+      it('should create budget with the exact provided quota', async () => {
+        mockUpsert();
+
+        await service.ensureMonthlyBudget(TENANT_ID, 100);
+
+        expect(prisma.monthlySessionBudget.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            create: expect.objectContaining({ totalQuota: 100 }),
+          }),
+        );
+      });
+
+      it('should return the upserted budget record', async () => {
+        const budget = { tenantId: TENANT_ID, totalQuota: 100, usedCount: 5, year: 2025, month: 8 };
+        prisma.monthlySessionBudget.upsert.mockResolvedValue(budget);
+
+        const result = await service.ensureMonthlyBudget(TENANT_ID, 100);
+
+        expect(result).toEqual(budget);
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    // quota parametresi verilmediğinde — abonelik sorgusu yapılır
+    // -----------------------------------------------------------------------
+
+    describe('when quota argument is NOT provided', () => {
+      it('should query the active subscription to derive quota', async () => {
+        prisma.tenantSubscription.findFirst.mockResolvedValue({ monthlySessionQuota: 250, endDate: null });
+        mockUpsert({ tenantId: TENANT_ID, totalQuota: 250, usedCount: 0, year: 2025, month: 8 });
+
+        await service.ensureMonthlyBudget(TENANT_ID);
+
+        expect(prisma.tenantSubscription.findFirst).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { tenantId: TENANT_ID, endDate: null },
+            orderBy: { startDate: 'desc' },
+          }),
+        );
+      });
+
+      it('should use subscription monthlySessionQuota when active subscription exists', async () => {
+        prisma.tenantSubscription.findFirst.mockResolvedValue({ monthlySessionQuota: 250, endDate: null });
+        mockUpsert();
+
+        await service.ensureMonthlyBudget(TENANT_ID);
+
+        expect(prisma.monthlySessionBudget.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            create: expect.objectContaining({ totalQuota: 250 }),
+          }),
+        );
+      });
+
+      it('should fall back to FREE default quota (25) when no active subscription exists', async () => {
+        prisma.tenantSubscription.findFirst.mockResolvedValue(null);
+        mockUpsert();
+
+        await service.ensureMonthlyBudget(TENANT_ID);
+
+        expect(prisma.monthlySessionBudget.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            create: expect.objectContaining({ totalQuota: 25 }),
+          }),
+        );
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    // upsert davranışı
+    // -----------------------------------------------------------------------
+
+    describe('upsert behavior', () => {
+      it('should use tenantId_year_month composite key in the where clause', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2025-08-15T10:00:00Z'));
+
+        prisma.tenantSubscription.findFirst.mockResolvedValue(null);
+        mockUpsert();
+
+        await service.ensureMonthlyBudget(TENANT_ID);
+
+        expect(prisma.monthlySessionBudget.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: {
+              tenantId_year_month: { tenantId: TENANT_ID, year: 2025, month: 8 },
+            },
+          }),
+        );
+
+        jest.useRealTimers();
+      });
+
+      it('should pass empty update object so existing budgets are NOT overwritten', async () => {
+        prisma.tenantSubscription.findFirst.mockResolvedValue(null);
+        mockUpsert();
+
+        await service.ensureMonthlyBudget(TENANT_ID);
+
+        const upsertArg = prisma.monthlySessionBudget.upsert.mock.calls[0][0];
+        expect(upsertArg.update).toEqual({});
+      });
+
+      it('should include tenantId, year, and month in the create payload', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2025-08-15T10:00:00Z'));
+
+        prisma.tenantSubscription.findFirst.mockResolvedValue(null);
+        mockUpsert();
+
+        await service.ensureMonthlyBudget(TENANT_ID, 50);
+
+        expect(prisma.monthlySessionBudget.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            create: { tenantId: TENANT_ID, year: 2025, month: 8, totalQuota: 50 },
+          }),
+        );
+
+        jest.useRealTimers();
       });
     });
   });
