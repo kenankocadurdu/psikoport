@@ -581,4 +581,200 @@ describe('PaymentsService', () => {
       });
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 4.3 getMonthlyChartData
+  // -------------------------------------------------------------------------
+  describe('4.3 getMonthlyChartData', () => {
+    // NOW = 2025-06-15 → months 1..6 are Jan-Jun 2025
+    const NOW = new Date('2025-06-15T12:00:00Z');
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(NOW);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    /** Return N empty-month mocks so findMany resolves [] for each loop iteration. */
+    function setupEmptyMonths(n: number) {
+      for (let i = 0; i < n; i++) {
+        prisma.sessionPayment.findMany.mockResolvedValueOnce([] as never);
+      }
+    }
+
+    describe('result array structure', () => {
+      it('returns 6 entries by default', async () => {
+        setupEmptyMonths(6);
+
+        const result = await service.getMonthlyChartData(TENANT_ID);
+
+        expect(result).toHaveLength(6);
+      });
+
+      it('respects custom months param', async () => {
+        setupEmptyMonths(3);
+
+        const result = await service.getMonthlyChartData(TENANT_ID, 3);
+
+        expect(result).toHaveLength(3);
+        expect(prisma.sessionPayment.findMany).toHaveBeenCalledTimes(3);
+      });
+
+      it('returns months ordered oldest-first (Jan → Jun for months=6)', async () => {
+        setupEmptyMonths(6);
+
+        const result = await service.getMonthlyChartData(TENANT_ID);
+
+        expect(result[0].month).toBe('2025-01');
+        expect(result[5].month).toBe('2025-06');
+      });
+
+      it('formats month as YYYY-MM with zero-padded month', async () => {
+        setupEmptyMonths(6);
+
+        const result = await service.getMonthlyChartData(TENANT_ID);
+
+        // All entries must match YYYY-MM pattern
+        for (const entry of result) {
+          expect(entry.month).toMatch(/^\d{4}-\d{2}$/);
+        }
+      });
+
+      it('includes monthLabel as a non-empty string', async () => {
+        setupEmptyMonths(6);
+
+        const result = await service.getMonthlyChartData(TENANT_ID);
+
+        for (const entry of result) {
+          expect(typeof entry.monthLabel).toBe('string');
+          expect(entry.monthLabel.length).toBeGreaterThan(0);
+        }
+      });
+    });
+
+    describe('aggregation per month', () => {
+      it('sums amounts as totalRevenue for the month', async () => {
+        // Only test the first month (Jan 2025 = index 0, i=5)
+        prisma.sessionPayment.findMany
+          .mockResolvedValueOnce([
+            { amount: 100, paidAmount: 100, status: 'PAID' },
+            { amount: 50, paidAmount: null, status: 'PENDING' },
+          ] as never)
+          // remaining 5 months
+          .mockResolvedValue([] as never);
+
+        const result = await service.getMonthlyChartData(TENANT_ID);
+
+        expect(result[0].totalRevenue).toBe(150);
+      });
+
+      it('sums paidAmount (non-null only) as collected for the month', async () => {
+        prisma.sessionPayment.findMany
+          .mockResolvedValueOnce([
+            { amount: 100, paidAmount: 80, status: 'PARTIAL' },
+            { amount: 200, paidAmount: null, status: 'PENDING' },
+          ] as never)
+          .mockResolvedValue([] as never);
+
+        const result = await service.getMonthlyChartData(TENANT_ID);
+
+        expect(result[0].collected).toBe(80);
+      });
+
+      it('computes pending = totalRevenue - collected per month', async () => {
+        prisma.sessionPayment.findMany
+          .mockResolvedValueOnce([
+            { amount: 300, paidAmount: 100, status: 'PARTIAL' },
+          ] as never)
+          .mockResolvedValue([] as never);
+
+        const result = await service.getMonthlyChartData(TENANT_ID);
+
+        expect(result[0].pending).toBe(200);
+      });
+
+      it('returns zeros for months with no payments', async () => {
+        setupEmptyMonths(6);
+
+        const result = await service.getMonthlyChartData(TENANT_ID);
+
+        for (const entry of result) {
+          expect(entry).toMatchObject({ totalRevenue: 0, collected: 0, pending: 0 });
+        }
+      });
+    });
+
+    describe('date boundaries per month', () => {
+      it('queries each month from its first day to its last day at 23:59:59', async () => {
+        setupEmptyMonths(6);
+
+        await service.getMonthlyChartData(TENANT_ID);
+
+        // First call = Jan 2025 (i=5)
+        const firstCall = prisma.sessionPayment.findMany.mock.calls[0][0] as {
+          where: { sessionDate: { gte: Date; lte: Date } };
+        };
+        expect(firstCall.where.sessionDate.gte).toEqual(new Date(2025, 0, 1));  // Jan 1
+        expect(firstCall.where.sessionDate.lte).toEqual(new Date(2025, 1, 0, 23, 59, 59)); // Jan 31 23:59:59
+
+        // Last call = Jun 2025 (i=0)
+        const lastCall = prisma.sessionPayment.findMany.mock.calls[5][0] as {
+          where: { sessionDate: { gte: Date; lte: Date } };
+        };
+        expect(lastCall.where.sessionDate.gte).toEqual(new Date(2025, 5, 1));  // Jun 1
+        expect(lastCall.where.sessionDate.lte).toEqual(new Date(2025, 6, 0, 23, 59, 59)); // Jun 30 23:59:59
+      });
+
+      it('makes exactly N DB calls (one per month)', async () => {
+        setupEmptyMonths(4);
+
+        await service.getMonthlyChartData(TENANT_ID, 4);
+
+        expect(prisma.sessionPayment.findMany).toHaveBeenCalledTimes(4);
+      });
+    });
+
+    describe('psychologistId filter', () => {
+      it('adds psychologistId to every monthly query when provided', async () => {
+        setupEmptyMonths(6);
+
+        await service.getMonthlyChartData(TENANT_ID, 6, PSYCHOLOGIST_ID);
+
+        for (const call of prisma.sessionPayment.findMany.mock.calls) {
+          const where = (call[0] as { where: Record<string, unknown> }).where;
+          expect(where.psychologistId).toBe(PSYCHOLOGIST_ID);
+        }
+      });
+
+      it('omits psychologistId from queries when not provided', async () => {
+        setupEmptyMonths(6);
+
+        await service.getMonthlyChartData(TENANT_ID);
+
+        for (const call of prisma.sessionPayment.findMany.mock.calls) {
+          const where = (call[0] as { where: Record<string, unknown> }).where;
+          expect(where).not.toHaveProperty('psychologistId');
+        }
+      });
+    });
+
+    describe('query filters', () => {
+      it('always includes tenantId and status whitelist in every query', async () => {
+        setupEmptyMonths(6);
+
+        await service.getMonthlyChartData(TENANT_ID);
+
+        for (const call of prisma.sessionPayment.findMany.mock.calls) {
+          const where = (call[0] as { where: Record<string, unknown> }).where;
+          expect(where).toMatchObject({
+            tenantId: TENANT_ID,
+            status: { in: ['PENDING', 'PAID', 'PARTIAL'] },
+          });
+        }
+      });
+    });
+  });
 });
