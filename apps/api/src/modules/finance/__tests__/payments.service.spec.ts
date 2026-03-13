@@ -777,4 +777,213 @@ describe('PaymentsService', () => {
       });
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 4.4 findUnpaidForReminder
+  // -------------------------------------------------------------------------
+  describe('4.4 findUnpaidForReminder', () => {
+    const NOW = new Date('2025-06-15T12:00:00Z');
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(NOW);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    function makeRawPayment(overrides: {
+      id?: string;
+      clientId?: string;
+      amount?: number;
+      sessionDate?: Date;
+      phone?: string | null;
+    }) {
+      return {
+        id: overrides.id ?? PAYMENT_ID,
+        clientId: overrides.clientId ?? CLIENT_ID,
+        amount: overrides.amount ?? 100,
+        sessionDate: overrides.sessionDate ?? new Date('2025-05-01T00:00:00Z'),
+        client: { phone: 'phone' in overrides ? overrides.phone : '+905001234567' },
+      };
+    }
+
+    describe('cutoff date calculation', () => {
+      it('queries with lte cutoff = now minus reminderDays', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        const expectedCutoff = new Date(NOW);
+        expectedCutoff.setDate(expectedCutoff.getDate() - 7);
+
+        expect(prisma.sessionPayment.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              sessionDate: { lte: expectedCutoff },
+            }),
+          }),
+        );
+      });
+
+      it('computes correct cutoff for different reminderDays values', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        await service.findUnpaidForReminder(TENANT_ID, 30);
+
+        const expectedCutoff = new Date(NOW);
+        expectedCutoff.setDate(expectedCutoff.getDate() - 30);
+
+        const call = prisma.sessionPayment.findMany.mock.calls[0][0] as {
+          where: { sessionDate: { lte: Date } };
+        };
+        expect(call.where.sessionDate.lte).toEqual(expectedCutoff);
+      });
+    });
+
+    describe('query filters', () => {
+      it('always filters by status=PENDING and amount>0', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        expect(prisma.sessionPayment.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              status: 'PENDING',
+              amount: { gt: 0 },
+            }),
+          }),
+        );
+      });
+
+      it('always filters by tenantId', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        expect(prisma.sessionPayment.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ tenantId: TENANT_ID }),
+          }),
+        );
+      });
+
+      it('adds psychologistId when provided', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        await service.findUnpaidForReminder(TENANT_ID, 7, PSYCHOLOGIST_ID);
+
+        expect(prisma.sessionPayment.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ psychologistId: PSYCHOLOGIST_ID }),
+          }),
+        );
+      });
+
+      it('omits psychologistId when not provided', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        const call = prisma.sessionPayment.findMany.mock.calls[0][0] as {
+          where: Record<string, unknown>;
+        };
+        expect(call.where).not.toHaveProperty('psychologistId');
+      });
+    });
+
+    describe('client phone filtering', () => {
+      it('excludes payments where client.phone is null', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([
+          makeRawPayment({ phone: null }),
+        ] as never);
+
+        const result = await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        expect(result).toHaveLength(0);
+      });
+
+      it('excludes payments where client.phone is empty string (falsy)', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([
+          makeRawPayment({ phone: '' }),
+        ] as never);
+
+        const result = await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        expect(result).toHaveLength(0);
+      });
+
+      it('keeps payments where client.phone is a non-empty string', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([
+          makeRawPayment({ phone: '+905001234567' }),
+        ] as never);
+
+        const result = await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        expect(result).toHaveLength(1);
+      });
+
+      it('filters out null-phone entries while keeping valid-phone entries', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([
+          makeRawPayment({ id: 'pay-1', phone: '+901112223333' }),
+          makeRawPayment({ id: 'pay-2', phone: null }),
+          makeRawPayment({ id: 'pay-3', phone: '+904445556666' }),
+        ] as never);
+
+        const result = await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        expect(result).toHaveLength(2);
+        expect(result.map((r) => r.id)).toEqual(['pay-1', 'pay-3']);
+      });
+    });
+
+    describe('result mapping', () => {
+      it('converts amount to Number()', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([
+          makeRawPayment({ amount: 250 }),
+        ] as never);
+
+        const result = await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        expect(typeof result[0].amount).toBe('number');
+        expect(result[0].amount).toBe(250);
+      });
+
+      it('maps clientPhone from client.phone', async () => {
+        const phone = '+905009876543';
+        prisma.sessionPayment.findMany.mockResolvedValue([
+          makeRawPayment({ phone }),
+        ] as never);
+
+        const result = await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        expect(result[0].clientPhone).toBe(phone);
+      });
+
+      it('maps id, clientId, sessionDate correctly', async () => {
+        const sessionDate = new Date('2025-04-10T00:00:00Z');
+        prisma.sessionPayment.findMany.mockResolvedValue([
+          makeRawPayment({ id: 'pay-x', clientId: 'cl-x', sessionDate }),
+        ] as never);
+
+        const result = await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        expect(result[0]).toMatchObject({
+          id: 'pay-x',
+          clientId: 'cl-x',
+          sessionDate,
+        });
+      });
+
+      it('returns empty array when no payments match', async () => {
+        prisma.sessionPayment.findMany.mockResolvedValue([] as never);
+
+        const result = await service.findUnpaidForReminder(TENANT_ID, 7);
+
+        expect(result).toEqual([]);
+      });
+    });
+  });
 });
