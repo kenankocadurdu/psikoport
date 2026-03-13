@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import jwt from 'jsonwebtoken';
 import * as argon2 from 'argon2';
@@ -49,6 +49,9 @@ function makePrisma() {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+    },
+    tenantMember: {
+      findFirst: jest.fn(),
     },
   };
 }
@@ -1197,6 +1200,133 @@ describe('AuthService – 6.4 invite()', () => {
           }),
         }),
       );
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6.5 switchTenant()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('AuthService – 6.5 switchTenant()', () => {
+  const ST_USER_ID = 'user-st-1';
+  const ORIGIN_TENANT = 'tenant-origin-1';
+  const TARGET_TENANT = 'tenant-target-2';
+
+  const DB_USER = {
+    id: ST_USER_ID,
+    auth0Sub: 'local|stuser123',
+    tenantId: ORIGIN_TENANT,
+    email: 'st@example.com',
+    fullName: 'ST User',
+    role: 'PSYCHOLOGIST',
+  };
+
+  const MEMBERSHIP = { userId: ST_USER_ID, tenantId: TARGET_TENANT, isActive: true };
+
+  let prisma: ReturnType<typeof makePrisma>;
+  let service: AuthService;
+
+  beforeEach(async () => {
+    prisma = makePrisma();
+
+    // Happy-path defaults
+    prisma.tenantMember.findFirst.mockResolvedValue(MEMBERSHIP);
+    prisma.user.findUnique.mockResolvedValue(DB_USER);
+
+    const module = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: prisma },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string, defaultVal?: unknown) => {
+              if (key === 'JWT_LOCAL_SECRET') return JWT_SECRET;
+              return defaultVal ?? undefined;
+            }),
+          },
+        },
+        { provide: NotificationService, useValue: { sendEmail: jest.fn() } },
+        { provide: StorageService, useValue: { buildLicenseDocKey: jest.fn(), generateUploadUrl: jest.fn() } },
+        { provide: SubscriptionService, useValue: { createInitialSubscription: jest.fn() } },
+        { provide: SystemConfigService, useValue: { getBoolean: jest.fn() } },
+      ],
+    }).compile();
+
+    service = module.get<AuthService>(AuthService);
+  });
+
+  // ── Happy path ─────────────────────────────────────────────────────────────
+
+  describe('happy path', () => {
+    it('returns { token } when membership is active', async () => {
+      const result = await service.switchTenant(ST_USER_ID, TARGET_TENANT);
+
+      expect(result).toHaveProperty('token');
+      expect(typeof result.token).toBe('string');
+    });
+
+    it('token is a valid HS256 JWT with correct sub and targetTenantId', async () => {
+      const { token } = await service.switchTenant(ST_USER_ID, TARGET_TENANT);
+
+      const decoded = jwt.verify(token, JWT_SECRET) as Record<string, unknown>;
+      expect(decoded['sub']).toBe(DB_USER.auth0Sub);
+      expect(decoded['tenantId']).toBe(TARGET_TENANT);
+    });
+
+    it('token contains targetTenantId, not the user original tenantId', async () => {
+      const { token } = await service.switchTenant(ST_USER_ID, TARGET_TENANT);
+
+      const decoded = jwt.decode(token) as Record<string, unknown>;
+      expect(decoded['tenantId']).toBe(TARGET_TENANT);
+      expect(decoded['tenantId']).not.toBe(ORIGIN_TENANT);
+    });
+
+    it('queries tenantMember with userId, targetTenantId, isActive=true', async () => {
+      await service.switchTenant(ST_USER_ID, TARGET_TENANT);
+
+      expect(prisma.tenantMember.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: ST_USER_ID, tenantId: TARGET_TENANT, isActive: true },
+        }),
+      );
+    });
+
+    it('fetches user by userId after membership is confirmed', async () => {
+      await service.switchTenant(ST_USER_ID, TARGET_TENANT);
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: ST_USER_ID } }),
+      );
+    });
+  });
+
+  // ── Failures ───────────────────────────────────────────────────────────────
+
+  describe('failures', () => {
+    it('throws ForbiddenException when membership not found', async () => {
+      prisma.tenantMember.findFirst.mockResolvedValue(null);
+
+      await expect(service.switchTenant(ST_USER_ID, TARGET_TENANT)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('throws UnauthorizedException when user is not found despite valid membership', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.switchTenant(ST_USER_ID, TARGET_TENANT)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('does not call user.findUnique when membership check fails', async () => {
+      prisma.tenantMember.findFirst.mockResolvedValue(null);
+
+      await service.switchTenant(ST_USER_ID, TARGET_TENANT).catch(() => {});
+
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
     });
   });
 });
