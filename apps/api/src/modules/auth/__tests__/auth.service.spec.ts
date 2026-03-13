@@ -619,3 +619,358 @@ describe('AuthService – 6.2 register()', () => {
     });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6.3 loginCallback() — MFA Detection
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('AuthService – 6.3 loginCallback()', () => {
+  const DB_USER = {
+    id: 'user-cb-1',
+    auth0Sub: 'auth0|sub123',
+    tenantId: 'tenant-cb-1',
+    email: 'user@example.com',
+    fullName: 'DB User',
+    role: 'PSYCHOLOGIST',
+    isActive: true,
+    is2faEnabled: false,
+    tenant: { id: 'tenant-cb-1', isActive: true },
+  };
+
+  const BASE_PAYLOAD = {
+    sub: 'auth0|sub123',
+    email: 'user@example.com',
+    name: 'DB User',
+    amr: [] as string[],
+  };
+
+  // ── Module builders ────────────────────────────────────────────────────────
+
+  async function buildNoAuth0Service(prismaMock: ReturnType<typeof makePrisma>) {
+    const configMock = {
+      get: jest.fn((key: string, defaultVal?: unknown) => {
+        if (key === 'JWT_LOCAL_SECRET') return JWT_SECRET;
+        return defaultVal ?? undefined;
+      }),
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: ConfigService, useValue: configMock },
+        { provide: NotificationService, useValue: { sendEmail: jest.fn() } },
+        { provide: StorageService, useValue: { buildLicenseDocKey: jest.fn(), generateUploadUrl: jest.fn() } },
+        { provide: SubscriptionService, useValue: { createInitialSubscription: jest.fn() } },
+        { provide: SystemConfigService, useValue: { getBoolean: jest.fn() } },
+      ],
+    }).compile();
+    return module.get<AuthService>(AuthService);
+  }
+
+  async function buildWithAuth0Service(
+    prismaMock: ReturnType<typeof makePrisma>,
+    enrollmentsMock: jest.Mock,
+  ) {
+    (ManagementClient as jest.Mock).mockImplementation(() => ({
+      users: { enrollments: { get: enrollmentsMock } },
+    }));
+    const configMock = {
+      get: jest.fn((key: string, defaultVal?: unknown) => {
+        if (key === 'JWT_LOCAL_SECRET') return JWT_SECRET;
+        if (key === 'AUTH0_DOMAIN') return 'example.auth0.com';
+        if (key === 'AUTH0_M2M_CLIENT_ID') return 'client-id';
+        if (key === 'AUTH0_M2M_CLIENT_SECRET') return 'client-secret';
+        return defaultVal ?? undefined;
+      }),
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: ConfigService, useValue: configMock },
+        { provide: NotificationService, useValue: { sendEmail: jest.fn() } },
+        { provide: StorageService, useValue: { buildLicenseDocKey: jest.fn(), generateUploadUrl: jest.fn() } },
+        { provide: SubscriptionService, useValue: { createInitialSubscription: jest.fn() } },
+        { provide: SystemConfigService, useValue: { getBoolean: jest.fn() } },
+      ],
+    }).compile();
+    return module.get<AuthService>(AuthService);
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  function setupPrismaForCallback(
+    prismaMock: ReturnType<typeof makePrisma>,
+    userOverrides: Record<string, unknown> = {},
+    updatedOverrides: Record<string, unknown> = {},
+  ) {
+    const user = { ...DB_USER, ...userOverrides };
+    const updated = { ...DB_USER, ...userOverrides, ...updatedOverrides };
+    // First findUnique: by auth0Sub (includes tenant)
+    // Second findUnique: by id (after update)
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce(updated);
+    prismaMock.user.update.mockResolvedValue(updated);
+  }
+
+  // ── Happy path ─────────────────────────────────────────────────────────────
+
+  describe('happy path', () => {
+    it('returns correct shape with userId, tenantId, email, fullName, role, is2faEnabled', async () => {
+      const prisma = makePrisma();
+      setupPrismaForCallback(prisma);
+      const svc = await buildNoAuth0Service(prisma);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(BASE_PAYLOAD);
+
+      const result = await svc.loginCallback('fake-token');
+
+      expect(result).toMatchObject({
+        userId: DB_USER.id,
+        tenantId: DB_USER.tenantId,
+        email: DB_USER.email,
+        fullName: DB_USER.fullName,
+        role: DB_USER.role,
+      });
+      expect(typeof result.is2faEnabled).toBe('boolean');
+    });
+
+    it('updates user email and fullName from JWT payload', async () => {
+      const prisma = makePrisma();
+      setupPrismaForCallback(prisma);
+      const svc = await buildNoAuth0Service(prisma);
+      const payload = { ...BASE_PAYLOAD, email: 'new@example.com', name: 'New Name' };
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(payload);
+
+      await svc.loginCallback('fake-token');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ email: 'new@example.com', fullName: 'New Name' }),
+        }),
+      );
+    });
+
+    it('keeps existing email/fullName when payload fields are missing', async () => {
+      const prisma = makePrisma();
+      setupPrismaForCallback(prisma);
+      const svc = await buildNoAuth0Service(prisma);
+      const payload = { sub: BASE_PAYLOAD.sub }; // no email, no name
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(payload);
+
+      await svc.loginCallback('fake-token');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: DB_USER.email,
+            fullName: DB_USER.fullName,
+          }),
+        }),
+      );
+    });
+
+    it('returns is2faEnabled from the second findUnique (post-update)', async () => {
+      const prisma = makePrisma();
+      // Original user: is2faEnabled=false; after update: is2faEnabled=true
+      setupPrismaForCallback(prisma, {}, { is2faEnabled: true });
+      const svc = await buildNoAuth0Service(prisma);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue({
+        ...BASE_PAYLOAD,
+        amr: ['mfa'],
+      });
+
+      const result = await svc.loginCallback('fake-token');
+
+      expect(result.is2faEnabled).toBe(true);
+    });
+  });
+
+  // ── MFA detection via amr claim ────────────────────────────────────────────
+
+  describe('MFA detection via amr claim', () => {
+    it.each([['mfa'], ['otp'], ['mfa-otp']])(
+      'amr=["%s"] → is2faEnabled set to true in update',
+      async (amrValue) => {
+        const prisma = makePrisma();
+        setupPrismaForCallback(prisma, {}, { is2faEnabled: true });
+        const svc = await buildNoAuth0Service(prisma);
+        jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue({
+          ...BASE_PAYLOAD,
+          amr: [amrValue],
+        });
+
+        await svc.loginCallback('fake-token');
+
+        expect(prisma.user.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ is2faEnabled: true }),
+          }),
+        );
+      },
+    );
+
+    it('amr=[] → is2faEnabled keeps existing user value', async () => {
+      const prisma = makePrisma();
+      // User already had is2faEnabled=true; amr empty; no auth0Management
+      setupPrismaForCallback(prisma, { is2faEnabled: true }, {});
+      const svc = await buildNoAuth0Service(prisma);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue({
+        ...BASE_PAYLOAD,
+        amr: [],
+      });
+
+      await svc.loginCallback('fake-token');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ is2faEnabled: true }),
+        }),
+      );
+    });
+
+    it('amr missing entirely → treated as [] (no MFA)', async () => {
+      const prisma = makePrisma();
+      setupPrismaForCallback(prisma);
+      const svc = await buildNoAuth0Service(prisma);
+      const { amr: _, ...payloadWithoutAmr } = BASE_PAYLOAD;
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(payloadWithoutAmr);
+
+      await svc.loginCallback('fake-token');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ is2faEnabled: false }),
+        }),
+      );
+    });
+  });
+
+  // ── MFA fallback via Management API ───────────────────────────────────────
+
+  describe('MFA fallback via Management API (amr=[])', () => {
+    it('hasMfa=true when enrollments.get returns a non-empty array', async () => {
+      const prisma = makePrisma();
+      setupPrismaForCallback(prisma);
+      const enrollmentsGet = jest.fn().mockResolvedValue([{ id: 'enroll-1' }]);
+      const svc = await buildWithAuth0Service(prisma, enrollmentsGet);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(BASE_PAYLOAD);
+
+      await svc.loginCallback('fake-token');
+
+      expect(enrollmentsGet).toHaveBeenCalledWith(BASE_PAYLOAD.sub);
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ is2faEnabled: true }),
+        }),
+      );
+    });
+
+    it('hasMfa=true when enrollments.get returns { data: [...] } shape', async () => {
+      const prisma = makePrisma();
+      setupPrismaForCallback(prisma);
+      const enrollmentsGet = jest.fn().mockResolvedValue({ data: [{ id: 'enroll-1' }] });
+      const svc = await buildWithAuth0Service(prisma, enrollmentsGet);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(BASE_PAYLOAD);
+
+      await svc.loginCallback('fake-token');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ is2faEnabled: true }),
+        }),
+      );
+    });
+
+    it('hasMfa=false when enrollments.get returns empty array', async () => {
+      const prisma = makePrisma();
+      setupPrismaForCallback(prisma);
+      const enrollmentsGet = jest.fn().mockResolvedValue([]);
+      const svc = await buildWithAuth0Service(prisma, enrollmentsGet);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(BASE_PAYLOAD);
+
+      await svc.loginCallback('fake-token');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ is2faEnabled: false }),
+        }),
+      );
+    });
+
+    it('swallows enrollments.get error and leaves hasMfa=false', async () => {
+      const prisma = makePrisma();
+      setupPrismaForCallback(prisma);
+      const enrollmentsGet = jest.fn().mockRejectedValue(new Error('Management API down'));
+      const svc = await buildWithAuth0Service(prisma, enrollmentsGet);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(BASE_PAYLOAD);
+
+      await expect(svc.loginCallback('fake-token')).resolves.toBeDefined();
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ is2faEnabled: false }),
+        }),
+      );
+    });
+
+    it('skips enrollments.get when amr already contains mfa', async () => {
+      const prisma = makePrisma();
+      setupPrismaForCallback(prisma);
+      const enrollmentsGet = jest.fn();
+      const svc = await buildWithAuth0Service(prisma, enrollmentsGet);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue({
+        ...BASE_PAYLOAD,
+        amr: ['mfa'],
+      });
+
+      await svc.loginCallback('fake-token');
+
+      expect(enrollmentsGet).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── Failures ───────────────────────────────────────────────────────────────
+
+  describe('authentication failures', () => {
+    it('throws UnauthorizedException when user is not found in DB', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue(null);
+      const svc = await buildNoAuth0Service(prisma);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(BASE_PAYLOAD);
+
+      await expect(svc.loginCallback('fake-token')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws UnauthorizedException when user.isActive=false', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({ ...DB_USER, isActive: false });
+      const svc = await buildNoAuth0Service(prisma);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(BASE_PAYLOAD);
+
+      await expect(svc.loginCallback('fake-token')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws UnauthorizedException when tenant.isActive=false', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        ...DB_USER,
+        tenant: { ...DB_USER.tenant, isActive: false },
+      });
+      const svc = await buildNoAuth0Service(prisma);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(BASE_PAYLOAD);
+
+      await expect(svc.loginCallback('fake-token')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('does not call user.update when pre-conditions fail', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue(null);
+      const svc = await buildNoAuth0Service(prisma);
+      jest.spyOn(svc as any, 'verifyAuth0Token').mockResolvedValue(BASE_PAYLOAD);
+
+      await svc.loginCallback('fake-token').catch(() => {});
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+});
