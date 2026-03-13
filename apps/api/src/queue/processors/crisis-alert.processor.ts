@@ -6,6 +6,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { NotificationService } from '../../modules/common/services/notification.service';
 import { AuditLogService } from '../../modules/legal/audit-log.service';
 import { runWithTenantContext } from '../../modules/common/context';
+import { IdempotencyGuard } from '../guards/idempotency.guard';
 
 export interface CrisisAlertJobData {
   submissionId: string;
@@ -23,12 +24,18 @@ export class CrisisAlertProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly notification: NotificationService,
     private readonly auditLog: AuditLogService,
+    private readonly idempotencyGuard: IdempotencyGuard,
   ) {
     super();
   }
 
   async process(job: Job<CrisisAlertJobData>): Promise<void> {
     const { submissionId, tenantId } = job.data;
+
+    if (!(await this.idempotencyGuard.acquireLock(`idem:crisis:${submissionId}`, 3600))) {
+      this.logger.warn(`Duplicate job skipped: crisis:${submissionId}`);
+      return;
+    }
 
     await runWithTenantContext({ tenantId, userId: 'system' }, async () => {
       const submission = await this.prisma.formSubmission.findUniqueOrThrow({

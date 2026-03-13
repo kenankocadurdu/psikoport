@@ -7,6 +7,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
 import { runWithTenantContext } from '../../modules/common/context';
+import { IdempotencyGuard } from '../guards/idempotency.guard';
 
 export interface ScoringJobData {
   submissionId: string;
@@ -23,6 +24,7 @@ export class ScoringProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('crisis-alert') private readonly crisisQueue: Queue,
+    private readonly idempotencyGuard: IdempotencyGuard,
   ) {
     super();
   }
@@ -37,6 +39,11 @@ export class ScoringProcessor extends WorkerHost {
 
   async process(job: Job<ScoringJobData>): Promise<void> {
     const { submissionId, formDefinitionId } = job.data;
+
+    if (!(await this.idempotencyGuard.acquireLock(`idem:scoring:${submissionId}`, 3600))) {
+      this.logger.warn(`Duplicate job skipped: scoring:${submissionId}`);
+      return;
+    }
 
     // Bootstrap query runs without ALS context (no RLS) to obtain tenantId
     const submissionForTenant = await this.prisma.formSubmission.findUniqueOrThrow({
