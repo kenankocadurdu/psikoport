@@ -58,22 +58,48 @@ export class AvailabilityService {
     });
 
     const dateStrOnly = dateStr.split('T')[0];
+    const rangeStart = new Date(`${dateStrOnly}T00:00:00`);
+    const rangeEnd = new Date(`${dateStrOnly}T23:59:59`);
 
-    const bookedRanges = await this.prisma.appointment.findMany({
-      where: {
-        psychologistId,
-        tenantId,
-        status: 'SCHEDULED',
-        startTime: { gte: new Date(`${dateStrOnly}T00:00:00`) },
-        endTime: { lte: new Date(`${dateStrOnly}T23:59:59`) },
-      },
-      select: { startTime: true, endTime: true },
-    });
+    const [appointments, externalEvents] = await Promise.all([
+      this.prisma.appointment.findMany({
+        where: {
+          psychologistId,
+          tenantId,
+          status: 'SCHEDULED',
+          startTime: { gte: rangeStart },
+          endTime: { lte: rangeEnd },
+        },
+        select: { startTime: true, endTime: true },
+      }),
+      this.prisma.externalCalendarEvent.findMany({
+        where: {
+          calendarIntegration: { userId: psychologistId },
+          deleted: false,
+          startTime: { gte: rangeStart },
+          endTime: { lte: rangeEnd },
+        },
+        select: { startTime: true, endTime: true },
+      }),
+    ]);
 
-    const available: Array<{
-      start: string;
-      end: string;
-    }> = [];
+    // Tüm meşgul aralıkları birleştir ve merge et
+    const rawBusy = [
+      ...appointments.map((a) => ({ s: a.startTime.getTime(), e: a.endTime.getTime() })),
+      ...externalEvents.map((ev) => ({ s: ev.startTime.getTime(), e: ev.endTime.getTime() })),
+    ].sort((a, b) => a.s - b.s);
+
+    const busyRanges: Array<{ s: number; e: number }> = [];
+    for (const interval of rawBusy) {
+      const last = busyRanges[busyRanges.length - 1];
+      if (last && interval.s <= last.e) {
+        last.e = Math.max(last.e, interval.e);
+      } else {
+        busyRanges.push({ ...interval });
+      }
+    }
+
+    const available: Array<{ start: string; end: string }> = [];
 
     for (const slot of slots) {
       const [startH, startM] = slot.startTime.split(':').map(Number);
@@ -89,11 +115,10 @@ export class AvailabilityService {
         const chunkEnd = new Date(current.getTime() + slotDuration * 60 * 1000);
         if (chunkEnd > slotEnd) break;
 
-        const overlaps = bookedRanges.some(
-          (r) =>
-            (current >= r.startTime && current < r.endTime) ||
-            (chunkEnd > r.startTime && chunkEnd <= r.endTime) ||
-            (current <= r.startTime && chunkEnd >= r.endTime),
+        const cMs = current.getTime();
+        const ceMs = chunkEnd.getTime();
+        const overlaps = busyRanges.some(
+          (r) => cMs < r.e && ceMs > r.s,
         );
 
         if (!overlaps) {
