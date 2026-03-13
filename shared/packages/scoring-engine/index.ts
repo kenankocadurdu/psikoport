@@ -25,6 +25,7 @@ export function calculateScore(
 }
 
 export { CalculatorRegistry } from './registry/calculator-registry';
+export { validateScoringConfig } from './validators/schema-validator';
 export { SumCalculator } from './calculators/sum.calculator';
 export { SubscaleCalculator } from './calculators/subscale.calculator';
 export { BaseCalculator } from './calculators/base.calculator';
