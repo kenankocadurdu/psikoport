@@ -50,6 +50,7 @@
     "diff": "^8.0.3",
     "googleapis": "^171.4.0",
     "ioredis": "^5.9.3",
+    "lru-cache": "^11.0.0",
     "jsonwebtoken": "^9.0.3",
     "jwks-rsa": "^4.0.0",
     "papaparse": "^5.5.3",
