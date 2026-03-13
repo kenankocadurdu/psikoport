@@ -130,4 +130,14 @@ export class AdminService {
       data: { isActive: !user.isActive },
     });
   }
+
+  async setRndPartner(tenantId: string, expiresAt: Date): Promise<void> {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) throw new NotFoundException('Tenant bulunamadı');
+
+    await (this.prisma.tenant as any).update({
+      where: { id: tenantId },
+      data: { isRndPartner: true, rndPartnerExpiresAt: expiresAt },
+    });
+  }
 }

@@ -59,10 +59,12 @@ model Tenant {
   subscriptionId     String?
   defaultSessionFee  Decimal?       @db.Decimal(10, 2)
   defaultCurrency    String         @default("TRY")
-  videoProvider      VideoProvider  @default(NONE)
-  isActive           Boolean        @default(true)
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  videoProvider          VideoProvider  @default(NONE)
+  isActive               Boolean        @default(true)
+  isRndPartner           Boolean        @default(false) @map("is_rnd_partner")
+  rndPartnerExpiresAt    DateTime?      @map("rnd_partner_expires_at")
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
   users               User[]
   members             TenantMember[]
