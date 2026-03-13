@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import jwt from 'jsonwebtoken';
 import * as argon2 from 'argon2';
@@ -971,6 +971,232 @@ describe('AuthService – 6.3 loginCallback()', () => {
       await svc.loginCallback('fake-token').catch(() => {});
 
       expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6.4 invite()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('AuthService – 6.4 invite()', () => {
+  const TENANT_ID_INV = 'tenant-inv-1';
+  const INVITER_ID = 'inviter-user-1';
+  const INVITER_NAME = 'Dr. Ayşe';
+  const INVITE_EMAIL = 'newstaff@example.com';
+
+  const TENANT = { id: TENANT_ID_INV, name: 'Klinik A', isActive: true };
+  const CREATED_INVITE = {
+    id: 'invite-1',
+    tenantId: TENANT_ID_INV,
+    email: INVITE_EMAIL,
+    role: 'ASSISTANT',
+    token: 'deadbeef'.repeat(8),
+    expiresAt: new Date(),
+  };
+
+  let prisma: ReturnType<typeof makePrisma>;
+  let notification: { sendEmail: jest.Mock };
+  let configGet: jest.Mock;
+  let service: AuthService;
+
+  const NOW = new Date('2026-03-14T10:00:00.000Z');
+
+  beforeEach(async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(NOW);
+
+    prisma = makePrisma();
+    notification = { sendEmail: jest.fn().mockResolvedValue(undefined) };
+    configGet = jest.fn((key: string, defaultVal?: unknown) => {
+      if (key === 'JWT_LOCAL_SECRET') return JWT_SECRET;
+      if (key === 'FRONTEND_URL') return 'https://app.example.com';
+      return defaultVal ?? undefined;
+    });
+
+    // Happy-path defaults
+    prisma.tenant.findUnique.mockResolvedValue(TENANT);
+    prisma.user.findFirst.mockResolvedValue(null);       // no existing user
+    prisma.invitation.findFirst.mockResolvedValue(null); // no pending invite
+    prisma.invitation.create.mockResolvedValue(CREATED_INVITE);
+
+    const module = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: ConfigService, useValue: { get: configGet } },
+        { provide: NotificationService, useValue: notification },
+        { provide: StorageService, useValue: { buildLicenseDocKey: jest.fn(), generateUploadUrl: jest.fn() } },
+        { provide: SubscriptionService, useValue: { createInitialSubscription: jest.fn() } },
+        { provide: SystemConfigService, useValue: { getBoolean: jest.fn() } },
+      ],
+    }).compile();
+
+    service = module.get<AuthService>(AuthService);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  // ── Happy path ─────────────────────────────────────────────────────────────
+
+  describe('happy path', () => {
+    it('returns { message } containing the invite email', async () => {
+      const result = await service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL);
+
+      expect(result.message).toContain(INVITE_EMAIL);
+    });
+
+    it('creates invitation with role=ASSISTANT and correct tenantId/email', async () => {
+      await service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL);
+
+      expect(prisma.invitation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenantId: TENANT_ID_INV,
+            email: INVITE_EMAIL,
+            role: 'ASSISTANT',
+          }),
+        }),
+      );
+    });
+
+    it('invitation expiresAt is 7 days from now', async () => {
+      await service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL);
+
+      const expected = new Date(NOW);
+      expected.setDate(expected.getDate() + 7);
+
+      const call = prisma.invitation.create.mock.calls[0][0] as { data: { expiresAt: Date } };
+      expect(call.data.expiresAt.getTime()).toBe(expected.getTime());
+    });
+
+    it('calls notification.sendEmail with correct recipient, inviterName, tenantName', async () => {
+      await service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL);
+
+      expect(notification.sendEmail).toHaveBeenCalledWith(
+        INVITE_EMAIL,
+        'invite-email',
+        expect.objectContaining({
+          inviterName: INVITER_NAME,
+          tenantName: TENANT.name,
+        }),
+        expect.any(String),
+        expect.any(String),
+      );
+    });
+
+    it('inviteUrl in email payload contains the invitation token passed to create', async () => {
+      await service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL);
+
+      // Token is generated locally before create; capture it from the create call args
+      const createCall = prisma.invitation.create.mock.calls[0][0] as { data: { token: string } };
+      const token = createCall.data.token;
+
+      const [, , templateVars] = notification.sendEmail.mock.calls[0] as [
+        string,
+        string,
+        { inviteUrl: string },
+        ...unknown[],
+      ];
+      expect(templateVars.inviteUrl).toContain(encodeURIComponent(token));
+    });
+
+    it('inviteUrl uses configured FRONTEND_URL', async () => {
+      await service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL);
+
+      const [, , templateVars] = notification.sendEmail.mock.calls[0] as [
+        string,
+        string,
+        { inviteUrl: string },
+        ...unknown[],
+      ];
+      expect(templateVars.inviteUrl).toMatch(/^https:\/\/app\.example\.com\//);
+    });
+
+    it('inviteUrl falls back to localhost:3000 when FRONTEND_URL is not set', async () => {
+      configGet.mockImplementation((key: string, defaultVal?: unknown) => {
+        if (key === 'JWT_LOCAL_SECRET') return JWT_SECRET;
+        return defaultVal ?? undefined; // FRONTEND_URL not set → default returned
+      });
+
+      await service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL);
+
+      const [, , templateVars] = notification.sendEmail.mock.calls[0] as [
+        string,
+        string,
+        { inviteUrl: string },
+        ...unknown[],
+      ];
+      expect(templateVars.inviteUrl).toMatch(/^http:\/\/localhost:3000\//);
+    });
+  });
+
+  // ── Failures ───────────────────────────────────────────────────────────────
+
+  describe('guard failures', () => {
+    it('throws BadRequestException when tenant is not found', async () => {
+      prisma.tenant.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws ConflictException when user already belongs to tenant', async () => {
+      prisma.user.findFirst.mockResolvedValue(makeActiveUser({ email: INVITE_EMAIL }));
+
+      await expect(
+        service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws ConflictException when a pending invite already exists', async () => {
+      prisma.invitation.findFirst.mockResolvedValue(CREATED_INVITE);
+
+      await expect(
+        service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('does not send email when tenant is not found', async () => {
+      prisma.tenant.findUnique.mockResolvedValue(null);
+
+      await service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL).catch(() => {});
+
+      expect(notification.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('does not send email when user already exists in tenant', async () => {
+      prisma.user.findFirst.mockResolvedValue(makeActiveUser({ email: INVITE_EMAIL }));
+
+      await service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL).catch(() => {});
+
+      expect(notification.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('does not send email when pending invite already exists', async () => {
+      prisma.invitation.findFirst.mockResolvedValue(CREATED_INVITE);
+
+      await service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL).catch(() => {});
+
+      expect(notification.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('checks for pending invite with acceptedAt=null and expiresAt > now', async () => {
+      await service.invite(TENANT_ID_INV, INVITER_ID, INVITER_NAME, INVITE_EMAIL);
+
+      expect(prisma.invitation.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            email: INVITE_EMAIL,
+            tenantId: TENANT_ID_INV,
+            acceptedAt: null,
+            expiresAt: { gt: NOW },
+          }),
+        }),
+      );
     });
   });
 });
