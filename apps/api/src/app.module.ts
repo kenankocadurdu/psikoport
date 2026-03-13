@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { APP_GUARD, APP_FILTER, APP_PIPE, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -28,6 +28,7 @@ import { HttpExceptionFilter } from './modules/common/filters/http-exception.fil
 import { ValidationPipe } from './modules/common/pipes/validation.pipe';
 import { AuditLogInterceptor } from './modules/common/interceptors/audit-log.interceptor';
 import { ResponseTimingInterceptor } from './modules/common/interceptors/response-timing.interceptor';
+import { TenantContextMiddleware } from './modules/common/middlewares/tenant-context.middleware';
 
 @Module({
   imports: [
@@ -103,4 +104,8 @@ import { ResponseTimingInterceptor } from './modules/common/interceptors/respons
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(TenantContextMiddleware).forRoutes('*');
+  }
+}
