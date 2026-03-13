@@ -10,6 +10,7 @@ import * as jwt from 'jsonwebtoken';
 import type { JwtUser } from '../types/request.types';
 import { PrismaService } from '../../../database/prisma.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { runWithTenantContext } from '../context';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -57,8 +58,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
                 role: user.role,
                 is2faEnabled: user.is2faEnabled ?? true,
               };
-              await this.prisma.$executeRaw`SELECT set_current_tenant(${user.tenantId})`;
-              return true;
+              return runWithTenantContext(
+                { tenantId: user.tenantId, userId: user.id },
+                () => true,
+              );
             }
           }
         } catch {
@@ -88,8 +91,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
                 role: user.role,
                 is2faEnabled: user.is2faEnabled ?? true,
               };
-              await this.prisma.$executeRaw`SELECT set_current_tenant(${user.tenantId})`;
-              return true;
+              return runWithTenantContext(
+                { tenantId: user.tenantId, userId: user.id },
+                () => true,
+              );
             }
           }
         } catch {
@@ -106,8 +111,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       throw new UnauthorizedException('Invalid token: missing tenant');
     }
 
-    await this.prisma.$executeRaw`SELECT set_current_tenant(${user.tenantId})`;
-
-    return true;
+    return runWithTenantContext(
+      { tenantId: user.tenantId, userId: user.userId },
+      () => true,
+    );
   }
 }

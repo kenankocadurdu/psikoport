@@ -96,9 +96,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('User not found or inactive');
     }
 
-    // RLS-003: Prisma ile SET app.current_tenant
-    await this.prisma.$executeRaw`SELECT set_current_tenant(${tenantId})`;
-
     return {
       sub: payload.sub,
       tenantId,
