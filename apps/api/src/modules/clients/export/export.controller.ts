@@ -17,10 +17,19 @@ export class ExportController {
   @Get()
   async export(
     @Param('clientId') clientId: string,
-    @Query('format') format: 'json' | 'csv' = 'json',
+    @Query('format') format: 'json' | 'csv' | 'gdpr-json' = 'json',
     @CurrentUser() user: JwtUser,
     @Res() res: Response,
   ) {
+    if (format === 'gdpr-json') {
+      const payload = await this.exportService.exportGdprJson(clientId, user.tenantId);
+      const filename = `gdpr-export-${clientId.slice(0, 8)}.json`;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+      res.send(JSON.stringify(payload, null, 2));
+      return;
+    }
+
     const validFormat = format === 'csv' ? 'csv' : 'json';
     const { data, contentType, filename } =
       await this.exportService.exportClientData(
