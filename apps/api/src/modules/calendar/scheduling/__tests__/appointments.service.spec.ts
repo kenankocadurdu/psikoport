@@ -84,6 +84,7 @@ describe('AppointmentsService', () => {
   let redis: ReturnType<typeof makeRedis>;
   let queue: ReturnType<typeof makeQueue>;
   let videoService: ReturnType<typeof makeVideoService>;
+  let paymentsService: ReturnType<typeof makePaymentsService>;
   let subscriptionService: ReturnType<typeof makeSubscriptionService>;
   let stripeService: ReturnType<typeof makeStripeService>;
 
@@ -92,6 +93,7 @@ describe('AppointmentsService', () => {
     redis = makeRedis();
     queue = makeQueue();
     videoService = makeVideoService();
+    paymentsService = makePaymentsService();
     subscriptionService = makeSubscriptionService();
     stripeService = makeStripeService();
 
@@ -103,7 +105,7 @@ describe('AppointmentsService', () => {
         { provide: getQueueToken('appointment-notification'), useValue: queue },
         { provide: CalendarSyncService, useValue: makeCalendarSync() },
         { provide: VideoService, useValue: videoService },
-        { provide: PaymentsService, useValue: makePaymentsService() },
+        { provide: PaymentsService, useValue: paymentsService },
         { provide: SubscriptionService, useValue: subscriptionService },
         { provide: StripeService, useValue: stripeService },
       ],
@@ -547,6 +549,171 @@ describe('AppointmentsService', () => {
       const result = await service.cancel(APPT_ID, undefined, TENANT_ID);
 
       expect(result).toEqual({ id: APPT_ID, status: 'CANCELLED' });
+    });
+  });
+
+  // =========================================================================
+  // 3.3 complete()
+  // =========================================================================
+
+  describe('complete()', () => {
+    const APPT_ID = 'appt-complete-001';
+
+    const scheduledAppt = {
+      id: APPT_ID,
+      clientId: 'client-001',
+      psychologistId: 'psych-001',
+      tenantId: TENANT_ID,
+      startTime: new Date('2025-01-06T09:00:00'),
+      endTime: new Date('2025-01-06T09:30:00'),
+      status: 'SCHEDULED',
+      googleEventId: null,
+      durationMinutes: 30,
+    };
+
+    const completedAppt = {
+      ...scheduledAppt,
+      status: 'COMPLETED',
+    };
+
+    beforeEach(() => {
+      prisma.appointment.findFirst.mockResolvedValue(scheduledAppt);
+      prisma.appointment.update.mockResolvedValue(completedAppt);
+      prisma.sessionPayment.findUnique.mockResolvedValue(null);
+      paymentsService.createFromAppointment.mockResolvedValue(undefined);
+      subscriptionService.consumeSession.mockResolvedValue(undefined);
+    });
+
+    // -----------------------------------------------------------------------
+    // Guard conditions
+    // -----------------------------------------------------------------------
+
+    it('should throw ForbiddenException if appointment status is not SCHEDULED', async () => {
+      prisma.appointment.findFirst.mockResolvedValue({
+        ...scheduledAppt,
+        status: 'CANCELLED',
+      });
+
+      await expect(service.complete(APPT_ID, TENANT_ID)).rejects.toThrow(
+        'Bu randevu tamamlanamaz',
+      );
+    });
+
+    it('should throw NotFoundException if appointment is not found', async () => {
+      prisma.appointment.findFirst.mockResolvedValue(null);
+
+      await expect(service.complete(APPT_ID, TENANT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // Durum güncellemesi
+    // -----------------------------------------------------------------------
+
+    it('should update appointment status to COMPLETED', async () => {
+      await service.complete(APPT_ID, TENANT_ID);
+
+      expect(prisma.appointment.update).toHaveBeenCalledWith({
+        where: { id: APPT_ID },
+        data: { status: 'COMPLETED' },
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    // Ödeme kaydı oluşturulur
+    // -----------------------------------------------------------------------
+
+    it('should call paymentsService.createFromAppointment after completing', async () => {
+      await service.complete(APPT_ID, TENANT_ID);
+
+      expect(paymentsService.createFromAppointment).toHaveBeenCalledWith(
+        APPT_ID,
+        TENANT_ID,
+      );
+    });
+
+    it('should call createFromAppointment with the appointment id (not original DTO id)', async () => {
+      await service.complete(APPT_ID, TENANT_ID);
+
+      const [apptIdArg] = paymentsService.createFromAppointment.mock.calls[0];
+      expect(apptIdArg).toBe(APPT_ID);
+    });
+
+    // -----------------------------------------------------------------------
+    // Stripe capturePayment — tutarı tahsil et
+    // -----------------------------------------------------------------------
+
+    it('should capture Stripe payment when stripePaymentIntentId exists', async () => {
+      prisma.sessionPayment.findUnique.mockResolvedValue({
+        appointmentId: APPT_ID,
+        stripePaymentIntentId: 'pi_capture_123',
+      });
+
+      await service.complete(APPT_ID, TENANT_ID);
+
+      expect(stripeService.capturePayment).toHaveBeenCalledWith('pi_capture_123');
+    });
+
+    it('should NOT call Stripe capturePayment when no payment record exists', async () => {
+      prisma.sessionPayment.findUnique.mockResolvedValue(null);
+
+      await service.complete(APPT_ID, TENANT_ID);
+
+      expect(stripeService.capturePayment).not.toHaveBeenCalled();
+    });
+
+    it('should NOT call Stripe capturePayment when payment record has no intent ID', async () => {
+      prisma.sessionPayment.findUnique.mockResolvedValue({
+        appointmentId: APPT_ID,
+        stripePaymentIntentId: null,
+      });
+
+      await service.complete(APPT_ID, TENANT_ID);
+
+      expect(stripeService.capturePayment).not.toHaveBeenCalled();
+    });
+
+    it('should continue completion even if Stripe capturePayment throws', async () => {
+      prisma.sessionPayment.findUnique.mockResolvedValue({
+        stripePaymentIntentId: 'pi_failing',
+      });
+      stripeService.capturePayment.mockRejectedValue(new Error('Stripe timeout'));
+
+      // Exception yutulmalı, complete başarıyla tamamlanmalı
+      const result = await service.complete(APPT_ID, TENANT_ID);
+
+      expect(result.status).toBe('COMPLETED');
+      // consumeSession hâlâ çağrılmalı
+      expect(subscriptionService.consumeSession).toHaveBeenCalledWith(TENANT_ID);
+    });
+
+    // -----------------------------------------------------------------------
+    // Seans kotası düşürülür
+    // -----------------------------------------------------------------------
+
+    it('should consume session quota after completion', async () => {
+      await service.complete(APPT_ID, TENANT_ID);
+
+      expect(subscriptionService.consumeSession).toHaveBeenCalledWith(TENANT_ID);
+    });
+
+    it('should consume session quota even when no Stripe payment exists', async () => {
+      prisma.sessionPayment.findUnique.mockResolvedValue(null);
+
+      await service.complete(APPT_ID, TENANT_ID);
+
+      expect(subscriptionService.consumeSession).toHaveBeenCalledTimes(1);
+    });
+
+    // -----------------------------------------------------------------------
+    // Dönen değer
+    // -----------------------------------------------------------------------
+
+    it('should return id and COMPLETED status', async () => {
+      const result = await service.complete(APPT_ID, TENANT_ID);
+
+      expect(result).toEqual({ id: APPT_ID, status: 'COMPLETED' });
     });
   });
 });
