@@ -42,6 +42,7 @@ export class CrisisService {
     submissionId: string,
     tenantId: string,
     userId: string,
+    notes?: string,
   ) {
     const submission = await this.prisma.formSubmission.findFirst({
       where: { id: submissionId, tenantId },
@@ -76,6 +77,8 @@ export class CrisisService {
         clientId: submission.clientId,
         clientName,
         formDefinitionId: submission.formDefinitionId,
+        notes,
+        acknowledgedBy: userId,
       },
     });
 

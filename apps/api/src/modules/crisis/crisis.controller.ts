@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { CrisisService } from './crisis.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -14,15 +14,17 @@ export class CrisisController {
     return this.crisisService.getActiveAlerts(user.tenantId!);
   }
 
-  @Patch(':id/acknowledge')
+  @Post(':id/acknowledge')
   async acknowledge(
     @Param('id') id: string,
+    @Body() body: { notes?: string },
     @CurrentUser() user: JwtUser,
   ) {
     return this.crisisService.acknowledge(
       id,
       user.tenantId!,
       user.userId!,
+      body.notes,
     );
   }
 }
