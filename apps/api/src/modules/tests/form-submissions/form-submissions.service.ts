@@ -359,7 +359,7 @@ export class FormSubmissionsService {
 
   private async enqueueScoring(submissionId: string, formDefinitionId: string) {
     const jobData: ScoringJobData = { submissionId, formDefinitionId };
-    await this.scoringQueue.add('score', jobData);
+    await this.scoringQueue.add('score', jobData, { jobId: `scoring:${submissionId}` });
   }
 
   private async enqueueCrisisAlert(

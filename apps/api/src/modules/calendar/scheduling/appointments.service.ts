@@ -180,7 +180,7 @@ export class AppointmentsService {
           clientId: appointment.clientId,
           psychologistId: appointment.psychologistId,
           videoMeetingUrl,
-        } as never);
+        } as never, { jobId: `appt-notif:${appointment.id}:created` });
       }
 
       return {
@@ -376,7 +376,7 @@ export class AppointmentsService {
       clientId: appointment.clientId,
       psychologistId: appointment.psychologistId,
       reason: reason ?? undefined,
-    } as AppointmentNotificationJobData);
+    } as AppointmentNotificationJobData, { jobId: `appt-notif:${id}:cancelled` });
 
     return { id: appointment.id, status: appointment.status };
   }
