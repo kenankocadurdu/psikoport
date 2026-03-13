@@ -174,4 +174,165 @@ describe('ClientsService', () => {
       });
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 5.2 importBulk()
+  // -------------------------------------------------------------------------
+  describe('5.2 importBulk()', () => {
+    // Valid/invalid row helpers — class-validator runs for real
+    const validRow = (overrides: Record<string, unknown> = {}) => ({
+      firstName: 'Ahmet',
+      lastName: 'Demir',
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      // Default: tenant with plenty of quota, 0 existing active clients
+      prisma.tenant.findUnique.mockResolvedValue(makeTenant({ maxClients: 100 }));
+      prisma.client.count.mockResolvedValue(0);
+      prisma.client.create.mockResolvedValue({ id: CLIENT_ID } as never);
+    });
+
+    describe('all valid rows', () => {
+      it('imports all valid rows and returns correct counts', async () => {
+        const rows = [validRow(), validRow(), validRow(), validRow(), validRow()];
+
+        const result = await service.importBulk(rows, TENANT_ID);
+
+        expect(result).toEqual({ imported: 5, failed: 0, errors: [] });
+        expect(prisma.client.create).toHaveBeenCalledTimes(5);
+      });
+
+      it('returns imported=1, failed=0 for a single valid row', async () => {
+        const result = await service.importBulk([validRow()], TENANT_ID);
+
+        expect(result.imported).toBe(1);
+        expect(result.failed).toBe(0);
+      });
+
+      it('returns imported=0, failed=0 for an empty rows array', async () => {
+        const result = await service.importBulk([], TENANT_ID);
+
+        expect(result).toEqual({ imported: 0, failed: 0, errors: [] });
+        expect(prisma.client.create).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('invalid rows', () => {
+      it('skips invalid rows and reports them in errors', async () => {
+        const rows = [
+          validRow(),                            // valid
+          { lastName: 'Yılmaz' },               // invalid: firstName missing
+          validRow(),                            // valid
+          { firstName: 'Test', lastName: 'User', email: 'not-an-email' }, // invalid email
+          validRow(),                            // valid
+        ];
+
+        const result = await service.importBulk(rows, TENANT_ID);
+
+        expect(result.imported).toBe(3);
+        expect(result.failed).toBe(2);
+        expect(result.errors).toHaveLength(2);
+      });
+
+      it('sets correct row numbers in error entries', async () => {
+        const rows = [
+          validRow(),                // row 1 — ok
+          { lastName: 'Yılmaz' },   // row 2 — invalid
+        ];
+
+        const result = await service.importBulk(rows, TENANT_ID);
+
+        expect(result.errors[0].row).toBe(2);
+      });
+
+      it('includes a descriptive message for invalid rows', async () => {
+        const rows = [{ firstName: 'Test', lastName: 'User', email: 'bad-email' }];
+
+        const result = await service.importBulk(rows, TENANT_ID);
+
+        expect(result.errors[0].message).toBeTruthy();
+        expect(typeof result.errors[0].message).toBe('string');
+      });
+
+      it('skips but still processes subsequent valid rows after an invalid one', async () => {
+        const rows = [
+          { lastName: 'Yılmaz' }, // invalid
+          validRow(),              // valid — should still be imported
+        ];
+
+        const result = await service.importBulk(rows, TENANT_ID);
+
+        expect(result.imported).toBe(1);
+        expect(result.failed).toBe(1);
+      });
+    });
+
+    describe('quota enforcement mid-batch', () => {
+      it('stops importing when quota is reached and adds remaining rows to errors', async () => {
+        // activeCount=2, maxClients=3 → only 1 slot left
+        prisma.tenant.findUnique.mockResolvedValue(makeTenant({ maxClients: 3 }));
+        prisma.client.count.mockResolvedValue(2);
+
+        const rows = [validRow(), validRow(), validRow()];
+
+        const result = await service.importBulk(rows, TENANT_ID);
+
+        // Row 1 imported (2+0=2 < 3), rows 2-3 hit quota (2+1=3 >= 3)
+        expect(result.imported).toBe(1);
+        expect(result.failed).toBe(2);
+        expect(result.errors.map((e) => e.row)).toEqual([2, 3]);
+      });
+
+      it('adds "Plan limiti aşıldı" message for quota-exceeded rows', async () => {
+        prisma.tenant.findUnique.mockResolvedValue(makeTenant({ maxClients: 1 }));
+        prisma.client.count.mockResolvedValue(1); // already at limit
+
+        const rows = [validRow()];
+
+        const result = await service.importBulk(rows, TENANT_ID);
+
+        expect(result.errors[0].message).toMatch(/limit/i);
+      });
+
+      it('counts previously imported rows in quota check (not just activeCount)', async () => {
+        // activeCount=0, maxClients=2 → 2 slots, 4 rows
+        prisma.tenant.findUnique.mockResolvedValue(makeTenant({ maxClients: 2 }));
+        prisma.client.count.mockResolvedValue(0);
+
+        const rows = [validRow(), validRow(), validRow(), validRow()];
+
+        const result = await service.importBulk(rows, TENANT_ID);
+
+        expect(result.imported).toBe(2);
+        expect(result.failed).toBe(2);
+      });
+    });
+
+    describe('DB errors during create', () => {
+      it('adds DB error message to errors and continues processing remaining rows', async () => {
+        prisma.client.create
+          .mockRejectedValueOnce(new Error('Unique constraint failed'))
+          .mockResolvedValue({ id: CLIENT_ID } as never);
+
+        const rows = [validRow(), validRow()];
+
+        const result = await service.importBulk(rows, TENANT_ID);
+
+        expect(result.imported).toBe(1);
+        expect(result.failed).toBe(1);
+        expect(result.errors[0].message).toContain('Unique constraint failed');
+      });
+    });
+
+    describe('tenant validation', () => {
+      it('throws NotFoundException when tenant does not exist', async () => {
+        prisma.tenant.findUnique.mockResolvedValue(null);
+
+        await expect(service.importBulk([validRow()], TENANT_ID)).rejects.toThrow(
+          NotFoundException,
+        );
+      });
+    });
+  });
 });
