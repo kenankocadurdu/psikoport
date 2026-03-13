@@ -237,10 +237,12 @@ model Client {
   preferredContact String[]  @default([])
   tags             String[]  @default([])
   complaintAreas   String[]  @default([])
-  referralSource   String?
-  sessionFee       Decimal?  @db.Decimal(10, 2)
-  status           ClientStatus @default(ACTIVE)
-  deletedAt        DateTime?
+  referralSource      String?
+  sessionFee          Decimal?  @db.Decimal(10, 2)
+  encryptedClientDek  Bytes?    @map("encrypted_client_dek")
+  clientDekNonce      Bytes?    @map("client_dek_nonce")
+  status              ClientStatus @default(ACTIVE)
+  deletedAt           DateTime?
   anonymizedAt     DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
