@@ -27,6 +27,36 @@ services:
       timeout: 5s
       retries: 5
 
+  backup-cron:
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile.postgres
+    container_name: psikoport-backup-cron
+    env_file:
+      - ../.env
+    environment:
+      PGHOST: postgres
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME:-psikoport}
+      PGDATA: /var/lib/postgresql/data
+      AWS_ACCESS_KEY_ID: ${MINIO_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./postgres/backup-cron.sh:/usr/local/bin/backup-cron.sh:ro
+      - ./postgres/walg-env.sh:/etc/walg-env.sh:ro
+    entrypoint: >
+      /bin/sh -c "
+        chmod +x /usr/local/bin/backup-cron.sh &&
+        echo '0 2 * * * /usr/local/bin/backup-cron.sh >> /var/log/backup-cron.log 2>&1' | crontab - &&
+        crond -f -l 2
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     container_name: psikoport-redis
