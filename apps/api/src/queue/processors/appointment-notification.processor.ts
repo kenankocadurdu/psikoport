@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationService } from '../../modules/common/services/notification.service';
 import type { AppointmentNotificationJobData } from '../../modules/calendar/scheduling/types';
+import { runWithTenantContext } from '../../modules/common/context';
 
 @Processor('appointment-notification', {
   concurrency: 3,
@@ -19,23 +20,25 @@ export class AppointmentNotificationProcessor extends WorkerHost {
   }
 
   async process(job: Job<AppointmentNotificationJobData>): Promise<void> {
-    const { appointmentId, type, reason, videoMeetingUrl } = job.data;
+    const { appointmentId, tenantId, type, reason, videoMeetingUrl } = job.data;
 
-    if (type === 'created' && videoMeetingUrl) {
-      await this.handleCreated(appointmentId, videoMeetingUrl);
-    }
+    await runWithTenantContext({ tenantId, userId: 'system' }, async () => {
+      if (type === 'created' && videoMeetingUrl) {
+        await this.handleCreated(appointmentId, videoMeetingUrl);
+      }
 
-    if (type === 'cancelled') {
-      this.logger.log(
-        `Appointment ${appointmentId} cancelled. Reason: ${reason ?? 'n/a'}`,
-      );
-      // TODO: Send SMS/email via NotificationService
-    }
+      if (type === 'cancelled') {
+        this.logger.log(
+          `Appointment ${appointmentId} cancelled. Reason: ${reason ?? 'n/a'}`,
+        );
+        // TODO: Send SMS/email via NotificationService
+      }
 
-    if (type === 'reminder') {
-      this.logger.log(`Appointment ${appointmentId} reminder`);
-      // Handled by appointment-reminder cron
-    }
+      if (type === 'reminder') {
+        this.logger.log(`Appointment ${appointmentId} reminder`);
+        // Handled by appointment-reminder cron
+      }
+    });
   }
 
   private async handleCreated(

@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationService } from '../../modules/common/services/notification.service';
+import { runWithTenantContext } from '../../modules/common/context';
 function addHours(date: Date, hours: number): Date {
   const d = new Date(date);
   d.setTime(d.getTime() + hours * 60 * 60 * 1000);
@@ -64,29 +65,31 @@ export class AppointmentReminderProcessor extends WorkerHost {
     });
 
     for (const apt of appointments) {
-      const clientName = `${apt.client.firstName} ${apt.client.lastName}`.trim() || 'Danışan';
-      const timeText = formatAppointmentTime(apt.startTime);
-      const videoSection = apt.videoMeetingUrl
-        ? `<p>Online görüşme linki: <a href="${apt.videoMeetingUrl}" style="color: #2563eb;">Görüşmeye katıl</a></p>`
-        : '';
+      await runWithTenantContext({ tenantId: apt.tenantId, userId: 'system' }, async () => {
+        const clientName = `${apt.client.firstName} ${apt.client.lastName}`.trim() || 'Danışan';
+        const timeText = formatAppointmentTime(apt.startTime);
+        const videoSection = apt.videoMeetingUrl
+          ? `<p>Online görüşme linki: <a href="${apt.videoMeetingUrl}" style="color: #2563eb;">Görüşmeye katıl</a></p>`
+          : '';
 
-      if (apt.client.phone) {
-        const msg = `Yarin ${timeText} randevunuz var. Psikoport.`;
-        await this.notification.sendSms(apt.client.phone, msg, 'appointment-reminder');
-      }
-      if (apt.client.email) {
-        await this.notification.sendEmail(
-          apt.client.email,
-          'appointment-reminder',
-          {
-            clientName,
-            timeText,
-            videoMeetingSection: videoSection,
-          },
-          'appointment-reminder',
-          'Randevu Hatırlatması — Psikoport',
-        );
-      }
+        if (apt.client.phone) {
+          const msg = `Yarin ${timeText} randevunuz var. Psikoport.`;
+          await this.notification.sendSms(apt.client.phone, msg, 'appointment-reminder');
+        }
+        if (apt.client.email) {
+          await this.notification.sendEmail(
+            apt.client.email,
+            'appointment-reminder',
+            {
+              clientName,
+              timeText,
+              videoMeetingSection: videoSection,
+            },
+            'appointment-reminder',
+            'Randevu Hatırlatması — Psikoport',
+          );
+        }
+      });
     }
     this.logger.log(`24h reminders: ${appointments.length} sent`);
   }
@@ -107,11 +110,13 @@ export class AppointmentReminderProcessor extends WorkerHost {
     });
 
     for (const apt of appointments) {
-      if (apt.client.phone) {
-        const timeText = formatAppointmentTime(apt.startTime);
-        const msg = `1 saat icinde randevunuz var: ${timeText}. Psikoport.`;
-        await this.notification.sendSms(apt.client.phone, msg, 'appointment-reminder');
-      }
+      await runWithTenantContext({ tenantId: apt.tenantId, userId: 'system' }, async () => {
+        if (apt.client.phone) {
+          const timeText = formatAppointmentTime(apt.startTime);
+          const msg = `1 saat icinde randevunuz var: ${timeText}. Psikoport.`;
+          await this.notification.sendSms(apt.client.phone, msg, 'appointment-reminder');
+        }
+      });
     }
     this.logger.log(`1h reminders: ${appointments.length} sent`);
   }
