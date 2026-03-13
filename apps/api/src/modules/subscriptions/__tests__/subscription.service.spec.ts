@@ -586,4 +586,208 @@ describe('SubscriptionService', () => {
       );
     });
   });
+
+  // =========================================================================
+  // 1.5 checkQuota()
+  // =========================================================================
+
+  describe('checkQuota()', () => {
+    const TENANT_ID = 'tenant-quota';
+
+    /**
+     * sessions branch için: getMonthlyUsage → ensureMonthlyBudget → upsert
+     * totalQuota ve usedCount değerlerini dışarıdan parametre olarak alır.
+     */
+    const setupSessionsBudget = (totalQuota: number, usedCount: number) => {
+      prisma.tenantSubscription.findFirst.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({
+        totalQuota,
+        usedCount,
+        year: 2025,
+        month: 8,
+      });
+    };
+
+    /**
+     * clients / custom_forms branch için: getActiveSubscription → findFirst
+     */
+    const setupActiveSub = (sub: Record<string, unknown> | null) => {
+      prisma.tenantSubscription.findFirst.mockResolvedValue(sub);
+    };
+
+    // -----------------------------------------------------------------------
+    // sessions
+    // -----------------------------------------------------------------------
+
+    describe('resource: sessions', () => {
+      it('should return allowed=true when remaining sessions > 0', async () => {
+        setupSessionsBudget(25, 10); // remaining = 15
+
+        const result = await service.checkQuota(TENANT_ID, 'sessions');
+
+        expect(result.allowed).toBe(true);
+        expect(result.current).toBe(10);
+        expect(result.limit).toBe(25);
+      });
+
+      it('should return allowed=false when all sessions are consumed (usedCount === totalQuota)', async () => {
+        setupSessionsBudget(25, 25); // remaining = 0
+
+        const result = await service.checkQuota(TENANT_ID, 'sessions');
+
+        expect(result.allowed).toBe(false);
+        expect(result.current).toBe(25);
+        expect(result.limit).toBe(25);
+      });
+
+      it('should return allowed=false when usedCount exceeds totalQuota (Math.max guard)', async () => {
+        setupSessionsBudget(25, 30); // remaining = Math.max(0, -5) = 0
+
+        const result = await service.checkQuota(TENANT_ID, 'sessions');
+
+        expect(result.allowed).toBe(false);
+      });
+
+      it('should return allowed=true when budget is completely untouched (usedCount === 0)', async () => {
+        setupSessionsBudget(25, 0); // remaining = 25
+
+        const result = await service.checkQuota(TENANT_ID, 'sessions');
+
+        expect(result.allowed).toBe(true);
+        expect(result.current).toBe(0);
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    // clients
+    // -----------------------------------------------------------------------
+
+    describe('resource: clients', () => {
+      beforeEach(() => {
+        // clients branch planConfig'e de ulaşır → findFirst iki kez: getActiveSubscription + getCurrentPlanConfig
+        setupActiveSub(null);
+        prisma.planConfig.findFirst.mockResolvedValue(null); // FREE defaults
+      });
+
+      it('should always return allowed=true regardless of client count', async () => {
+        prisma.client.count.mockResolvedValue(9999);
+
+        const result = await service.checkQuota(TENANT_ID, 'clients');
+
+        expect(result.allowed).toBe(true);
+      });
+
+      it('should return the actual client count as current', async () => {
+        prisma.client.count.mockResolvedValue(42);
+
+        const result = await service.checkQuota(TENANT_ID, 'clients');
+
+        expect(result.current).toBe(42);
+      });
+
+      it('should return Number.MAX_SAFE_INTEGER as limit for clients', async () => {
+        prisma.client.count.mockResolvedValue(0);
+
+        const result = await service.checkQuota(TENANT_ID, 'clients');
+
+        expect(result.limit).toBe(Number.MAX_SAFE_INTEGER);
+      });
+
+      it('should query only non-deleted clients (deletedAt: null)', async () => {
+        prisma.client.count.mockResolvedValue(5);
+
+        await service.checkQuota(TENANT_ID, 'clients');
+
+        expect(prisma.client.count).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ tenantId: TENANT_ID, deletedAt: null }),
+          }),
+        );
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    // custom_forms
+    // -----------------------------------------------------------------------
+
+    describe('resource: custom_forms', () => {
+      it('should return allowed=true when form count is below subscription quota', async () => {
+        setupActiveSub({ planCode: 'PRO', customFormQuota: 5, endDate: null });
+        prisma.planConfig.findFirst.mockResolvedValue(null);
+        prisma.formDefinition.count.mockResolvedValue(3); // 3 < 5
+
+        const result = await service.checkQuota(TENANT_ID, 'custom_forms');
+
+        expect(result.allowed).toBe(true);
+        expect(result.current).toBe(3);
+        expect(result.limit).toBe(5);
+      });
+
+      it('should return allowed=false when form count equals subscription quota', async () => {
+        setupActiveSub({ planCode: 'PRO', customFormQuota: 5, endDate: null });
+        prisma.planConfig.findFirst.mockResolvedValue(null);
+        prisma.formDefinition.count.mockResolvedValue(5); // 5 === 5, not < 5
+
+        const result = await service.checkQuota(TENANT_ID, 'custom_forms');
+
+        expect(result.allowed).toBe(false);
+        expect(result.current).toBe(5);
+        expect(result.limit).toBe(5);
+      });
+
+      it('should return allowed=false when form count exceeds subscription quota', async () => {
+        setupActiveSub({ planCode: 'PRO', customFormQuota: 5, endDate: null });
+        prisma.planConfig.findFirst.mockResolvedValue(null);
+        prisma.formDefinition.count.mockResolvedValue(7); // 7 > 5
+
+        const result = await service.checkQuota(TENANT_ID, 'custom_forms');
+
+        expect(result.allowed).toBe(false);
+      });
+
+      it('should use planConfig customFormQuota as fallback when no active subscription', async () => {
+        setupActiveSub(null); // sub yok → planCode = 'FREE'
+        prisma.planConfig.findFirst.mockResolvedValue({
+          monthlySessionQuota: 25,
+          testsPerSession: 1,
+          formsPerSession: 1,
+          remindersPerSession: 0,
+          customFormQuota: 0, // FREE: özel form yok
+        });
+        prisma.formDefinition.count.mockResolvedValue(0);
+
+        const result = await service.checkQuota(TENANT_ID, 'custom_forms');
+
+        // 0 < 0 = false → allowed=false, limit=0
+        expect(result.limit).toBe(0);
+        expect(result.allowed).toBe(false);
+      });
+
+      it('should prefer subscription customFormQuota over planConfig when both exist', async () => {
+        // Abonelik kaydında quota=10, planConfig'de quota=1 → abonelik kazanmalı
+        setupActiveSub({ planCode: 'PRO', customFormQuota: 10, endDate: null });
+        prisma.planConfig.findFirst.mockResolvedValue({ customFormQuota: 1 });
+        prisma.formDefinition.count.mockResolvedValue(3);
+
+        const result = await service.checkQuota(TENANT_ID, 'custom_forms');
+
+        expect(result.limit).toBe(10); // sub.customFormQuota kazandı
+        expect(result.allowed).toBe(true);
+      });
+
+      it('should query only CUSTOM type forms', async () => {
+        setupActiveSub({ planCode: 'PRO', customFormQuota: 5, endDate: null });
+        prisma.planConfig.findFirst.mockResolvedValue(null);
+        prisma.formDefinition.count.mockResolvedValue(2);
+
+        await service.checkQuota(TENANT_ID, 'custom_forms');
+
+        expect(prisma.formDefinition.count).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ tenantId: TENANT_ID, formType: 'CUSTOM' }),
+          }),
+        );
+      });
+    });
+  });
 });
