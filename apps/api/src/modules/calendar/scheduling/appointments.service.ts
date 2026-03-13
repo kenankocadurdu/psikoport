@@ -24,6 +24,7 @@ import type { PaginatedResponse } from '../../legal/audit-log.service';
 import type { AppointmentNotificationJobData } from './types';
 import { PaymentsService } from '../../finance/payments.service';
 import { SubscriptionService } from '../../subscriptions/subscription.service';
+import { StripeService } from '../../payments/stripe.service';
 
 const SLOT_LOCK_TTL = 300; // 5 minutes
 const SLOT_LOCK_PREFIX = 'appointment:slot:';
@@ -42,6 +43,7 @@ export class AppointmentsService {
     private readonly videoService: VideoService,
     private readonly paymentsService: PaymentsService,
     private readonly subscriptionService: SubscriptionService,
+    private readonly stripeService: StripeService,
   ) {}
 
   private lockKey(psychologistId: string, startTime: Date): string {
@@ -367,6 +369,19 @@ export class AppointmentsService {
       },
     });
 
+    // Stripe: ön yetkilendirme varsa iptal et
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payment = await this.prisma.sessionPayment.findUnique({
+      where: { appointmentId: id },
+    }) as any;
+    if (payment?.stripePaymentIntentId) {
+      try {
+        await this.stripeService.voidPayment(payment.stripePaymentIntentId);
+      } catch (err) {
+        this.logger.warn(`Stripe void failed for appointment ${id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
     await this.subscriptionService.consumeSession(tenantId);
 
     await this.notifQueue.add('cancelled', {
@@ -400,6 +415,19 @@ export class AppointmentsService {
       existing.tenantId,
     );
 
+    // Stripe: tam tutarı tahsil et
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const completedPayment = await this.prisma.sessionPayment.findUnique({
+      where: { appointmentId: id },
+    }) as any;
+    if (completedPayment?.stripePaymentIntentId) {
+      try {
+        await this.stripeService.capturePayment(completedPayment.stripePaymentIntentId);
+      } catch (err) {
+        this.logger.warn(`Stripe capture failed for appointment ${id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
     await this.subscriptionService.consumeSession(tenantId);
 
     return { id: appointment.id, status: appointment.status };
@@ -415,6 +443,19 @@ export class AppointmentsService {
       where: { id },
       data: { status: AppointmentStatus.NO_SHOW },
     });
+
+    // Stripe: no-show cezai bedeli — tam tutarı tahsil et
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const noShowPayment = await this.prisma.sessionPayment.findUnique({
+      where: { appointmentId: id },
+    }) as any;
+    if (noShowPayment?.stripePaymentIntentId) {
+      try {
+        await this.stripeService.capturePayment(noShowPayment.stripePaymentIntentId);
+      } catch (err) {
+        this.logger.warn(`Stripe no-show capture failed for appointment ${id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
 
     await this.subscriptionService.consumeSession(tenantId);
 

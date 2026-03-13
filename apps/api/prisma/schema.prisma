@@ -544,10 +544,11 @@ model SessionPayment {
   status         PaymentStatus  @default(PENDING)
   paidAmount     Decimal?       @db.Decimal(10, 2)
   paidAt         DateTime?
-  paymentMethod  String?
-  invoiceStatus  InvoiceStatus  @default(NOT_ISSUED)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  paymentMethod           String?
+  stripePaymentIntentId   String?  @map("stripe_payment_intent_id")
+  invoiceStatus           InvoiceStatus  @default(NOT_ISSUED)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
