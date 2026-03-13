@@ -145,4 +145,170 @@ describe('SubscriptionService', () => {
       expect(result.formsPerSession).toBe(5);         // PRO default
     });
   });
+
+  // =========================================================================
+  // 1.2 upgradePlan()
+  // =========================================================================
+
+  describe('upgradePlan()', () => {
+    const TENANT_ID = 'tenant-abc';
+
+    /** PRO planı için standart DB config mock'u */
+    const setupProConfig = () => {
+      prisma.planConfig.findFirst.mockResolvedValue({
+        monthlySessionQuota: 250,
+        testsPerSession: 5,
+        formsPerSession: 5,
+        remindersPerSession: 2,
+        customFormQuota: 1,
+      });
+    };
+
+    it('should close old subscription by setting endDate to now', async () => {
+      setupProConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({ totalQuota: 250, usedCount: 0 });
+
+      await service.upgradePlan(TENANT_ID, 'PRO');
+
+      expect(prisma.tenantSubscription.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenantId: TENANT_ID, endDate: null },
+          data: expect.objectContaining({ endDate: expect.any(Date) }),
+        }),
+      );
+    });
+
+    it('should create a new subscription snapshot for the new plan', async () => {
+      setupProConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({ totalQuota: 250, usedCount: 0 });
+
+      await service.upgradePlan(TENANT_ID, 'PRO');
+
+      expect(prisma.tenantSubscription.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenantId: TENANT_ID,
+            planCode: 'PRO',
+            monthlySessionQuota: 250,
+          }),
+        }),
+      );
+    });
+
+    it('should ADD new quota on top of existing monthly budget (additive on upgrade)', async () => {
+      setupProConfig();
+      // Bu ay zaten bir budget var: 10 kullanılmış, toplam 25
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue({
+        tenantId: TENANT_ID,
+        totalQuota: 25,
+        usedCount: 10,
+      });
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+
+      await service.upgradePlan(TENANT_ID, 'PRO');
+
+      // Mevcut budget'a 250 eklenmeli (replace değil, increment)
+      expect(prisma.monthlySessionBudget.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { totalQuota: { increment: 250 } },
+        }),
+      );
+      // create çağrılmamalı
+      expect(prisma.monthlySessionBudget.create).not.toHaveBeenCalled();
+    });
+
+    it('should create a fresh monthly budget when none exists for the current month', async () => {
+      setupProConfig();
+      // Bu ay hiç budget yok
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+
+      await service.upgradePlan(TENANT_ID, 'PRO');
+
+      expect(prisma.monthlySessionBudget.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenantId: TENANT_ID,
+            totalQuota: 250,
+          }),
+        }),
+      );
+      // update çağrılmamalı
+      expect(prisma.monthlySessionBudget.update).not.toHaveBeenCalled();
+    });
+
+    it('should update tenant.plan to the new plan', async () => {
+      setupProConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+
+      await service.upgradePlan(TENANT_ID, 'PRO');
+
+      expect(prisma.tenant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: TENANT_ID },
+          data: { plan: 'PRO' },
+        }),
+      );
+    });
+
+    it('should NOT call Stripe when no priceId is configured', async () => {
+      setupProConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+      stripe.getPriceId.mockReturnValue(null); // Stripe yapılandırılmamış
+
+      await service.upgradePlan(TENANT_ID, 'PRO');
+
+      expect(stripe.updateSubscription).not.toHaveBeenCalled();
+    });
+
+    it('should call Stripe updateSubscription when priceId is configured and tenant has subscriptionId', async () => {
+      setupProConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+      stripe.getPriceId.mockReturnValue('price_pro_123');
+      prisma.tenant.findUnique.mockResolvedValue({
+        id: TENANT_ID,
+        subscriptionId: 'sub_stripe_456',
+      });
+
+      await service.upgradePlan(TENANT_ID, 'PRO');
+
+      expect(stripe.updateSubscription).toHaveBeenCalledWith('sub_stripe_456', 'price_pro_123');
+    });
+
+    it('should NOT call Stripe updateSubscription when tenant has no subscriptionId', async () => {
+      setupProConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+      stripe.getPriceId.mockReturnValue('price_pro_123');
+      prisma.tenant.findUnique.mockResolvedValue({
+        id: TENANT_ID,
+        subscriptionId: null, // Stripe aboneliği yok
+      });
+
+      await service.upgradePlan(TENANT_ID, 'PRO');
+
+      expect(stripe.updateSubscription).not.toHaveBeenCalled();
+    });
+
+    it('should complete upgrade successfully even if Stripe throws an error', async () => {
+      setupProConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+      stripe.getPriceId.mockReturnValue('price_pro_123');
+      prisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, subscriptionId: 'sub_456' });
+      stripe.updateSubscription.mockRejectedValue(new Error('Stripe API down'));
+
+      // Stripe hatası upgrade işlemini patlatmamalı
+      await expect(service.upgradePlan(TENANT_ID, 'PRO')).resolves.not.toThrow();
+      // Tenant planı yine de güncellenmiş olmalı
+      expect(prisma.tenant.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { plan: 'PRO' } }),
+      );
+    });
+  });
 });
