@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import jwt from 'jsonwebtoken';
 import * as argon2 from 'argon2';
+import { ManagementClient } from 'auth0';
 
 import { AuthService } from '../auth.service';
 import { PrismaService } from '../../../database/prisma.service';
@@ -307,6 +308,314 @@ describe('AuthService – 6.1 localLogin()', () => {
       await expect(
         service.localLogin({ email: 'test@example.com', password: 'secret123' }),
       ).rejects.toThrow('JWT_LOCAL_SECRET is not configured');
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6.2 register()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('AuthService – 6.2 register()', () => {
+  const REGISTER_DTO = {
+    email: 'new@example.com',
+    password: 'password123',
+    fullName: 'New User',
+  };
+
+  const NEW_TENANT = { id: 'new-tenant-id', name: 'New User', slug: 'newuser-abc123', plan: 'FREE' };
+  const NEW_USER = {
+    id: 'new-user-id',
+    email: 'new@example.com',
+    fullName: 'New User',
+    role: 'PSYCHOLOGIST',
+    auth0Sub: 'local|generated',
+    tenantId: 'new-tenant-id',
+  };
+
+  // ── Module builders ────────────────────────────────────────────────────────
+
+  async function buildLocalModeService(
+    prismaMock: ReturnType<typeof makePrisma>,
+    subscriptionMock: { createInitialSubscription: jest.Mock },
+    systemConfigMock: { getBoolean: jest.Mock },
+  ) {
+    // No AUTH0_DOMAIN/CLIENT_ID/SECRET → auth0Management stays null
+    const configMock = {
+      get: jest.fn((key: string, defaultVal?: unknown) => {
+        if (key === 'JWT_LOCAL_SECRET') return JWT_SECRET;
+        return defaultVal ?? undefined;
+      }),
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: ConfigService, useValue: configMock },
+        { provide: NotificationService, useValue: { sendEmail: jest.fn() } },
+        { provide: StorageService, useValue: { buildLicenseDocKey: jest.fn(), generateUploadUrl: jest.fn() } },
+        { provide: SubscriptionService, useValue: subscriptionMock },
+        { provide: SystemConfigService, useValue: systemConfigMock },
+      ],
+    }).compile();
+    return module.get<AuthService>(AuthService);
+  }
+
+  async function buildAuth0ModeService(
+    prismaMock: ReturnType<typeof makePrisma>,
+    subscriptionMock: { createInitialSubscription: jest.Mock },
+    systemConfigMock: { getBoolean: jest.Mock },
+  ) {
+    // With AUTH0 credentials → ManagementClient constructor is called
+    const configMock = {
+      get: jest.fn((key: string, defaultVal?: unknown) => {
+        if (key === 'JWT_LOCAL_SECRET') return JWT_SECRET;
+        if (key === 'AUTH0_DOMAIN') return 'example.auth0.com';
+        if (key === 'AUTH0_M2M_CLIENT_ID') return 'client-id';
+        if (key === 'AUTH0_M2M_CLIENT_SECRET') return 'client-secret';
+        return defaultVal ?? undefined;
+      }),
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: ConfigService, useValue: configMock },
+        { provide: NotificationService, useValue: { sendEmail: jest.fn() } },
+        { provide: StorageService, useValue: { buildLicenseDocKey: jest.fn(), generateUploadUrl: jest.fn() } },
+        { provide: SubscriptionService, useValue: subscriptionMock },
+        { provide: SystemConfigService, useValue: systemConfigMock },
+      ],
+    }).compile();
+    return module.get<AuthService>(AuthService);
+  }
+
+  // ── Shared fixtures ────────────────────────────────────────────────────────
+
+  let prisma: ReturnType<typeof makePrisma>;
+  let subscription: { createInitialSubscription: jest.Mock };
+  let systemConfig: { getBoolean: jest.Mock };
+
+  beforeEach(() => {
+    prisma = makePrisma();
+    subscription = { createInitialSubscription: jest.fn() };
+    systemConfig = { getBoolean: jest.fn() };
+
+    prisma.user.findFirst.mockResolvedValue(null);        // email not taken
+    prisma.tenant.create.mockResolvedValue(NEW_TENANT);
+    prisma.user.create.mockResolvedValue(NEW_USER);
+
+    (argon2.hash as jest.Mock).mockResolvedValue('$argon2id$hashed');
+
+    // Reset ManagementClient mock to a no-op (overridden per describe)
+    (ManagementClient as jest.Mock).mockImplementation(() => ({}));
+  });
+
+  // ── Local mode ─────────────────────────────────────────────────────────────
+
+  describe('local mode (useAuth0=false, no Auth0 client)', () => {
+    it('returns access_token and user info', async () => {
+      systemConfig.getBoolean.mockResolvedValue(false);
+      const svc = await buildLocalModeService(prisma, subscription, systemConfig);
+
+      const result = await svc.register(REGISTER_DTO);
+
+      expect('access_token' in result).toBe(true);
+      if ('access_token' in result) {
+        expect(result.user).toEqual({
+          id: NEW_USER.id,
+          email: NEW_USER.email,
+          fullName: NEW_USER.fullName,
+          role: NEW_USER.role,
+        });
+      }
+    });
+
+    it('access_token JWT contains correct tenantId', async () => {
+      systemConfig.getBoolean.mockResolvedValue(false);
+      const svc = await buildLocalModeService(prisma, subscription, systemConfig);
+
+      const result = await svc.register(REGISTER_DTO);
+
+      if ('access_token' in result) {
+        const decoded = jwt.verify(result.access_token, JWT_SECRET) as Record<string, unknown>;
+        expect(decoded['tenantId']).toBe(NEW_TENANT.id);
+      } else {
+        fail('Expected access_token response');
+      }
+    });
+
+    it('hashes password via argon2 before storing', async () => {
+      systemConfig.getBoolean.mockResolvedValue(false);
+      const svc = await buildLocalModeService(prisma, subscription, systemConfig);
+
+      await svc.register(REGISTER_DTO);
+
+      expect(argon2.hash).toHaveBeenCalledWith(REGISTER_DTO.password);
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ passwordHash: '$argon2id$hashed' }),
+        }),
+      );
+    });
+
+    it('defaults plan to FREE when plan not specified', async () => {
+      systemConfig.getBoolean.mockResolvedValue(false);
+      const svc = await buildLocalModeService(prisma, subscription, systemConfig);
+
+      await svc.register(REGISTER_DTO);
+
+      expect(prisma.tenant.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ plan: 'FREE' }) }),
+      );
+    });
+
+    it('maps plan pro → PRO', async () => {
+      systemConfig.getBoolean.mockResolvedValue(false);
+      const svc = await buildLocalModeService(prisma, subscription, systemConfig);
+
+      await svc.register({ ...REGISTER_DTO, plan: 'pro' });
+
+      expect(prisma.tenant.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ plan: 'PRO' }) }),
+      );
+    });
+
+    it('maps plan proplus → PROPLUS', async () => {
+      systemConfig.getBoolean.mockResolvedValue(false);
+      const svc = await buildLocalModeService(prisma, subscription, systemConfig);
+
+      await svc.register({ ...REGISTER_DTO, plan: 'proplus' });
+
+      expect(prisma.tenant.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ plan: 'PROPLUS' }) }),
+      );
+    });
+
+    it('creates user with PSYCHOLOGIST role', async () => {
+      systemConfig.getBoolean.mockResolvedValue(false);
+      const svc = await buildLocalModeService(prisma, subscription, systemConfig);
+
+      await svc.register(REGISTER_DTO);
+
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ role: 'PSYCHOLOGIST' }) }),
+      );
+    });
+
+    it('calls createInitialSubscription with tenantId and plan', async () => {
+      systemConfig.getBoolean.mockResolvedValue(false);
+      const svc = await buildLocalModeService(prisma, subscription, systemConfig);
+
+      await svc.register(REGISTER_DTO);
+
+      expect(subscription.createInitialSubscription).toHaveBeenCalledWith(NEW_TENANT.id, 'FREE');
+    });
+
+    it('throws ConflictException when email is already registered', async () => {
+      systemConfig.getBoolean.mockResolvedValue(false);
+      prisma.user.findFirst.mockResolvedValue(makeActiveUser({ email: REGISTER_DTO.email }));
+      const svc = await buildLocalModeService(prisma, subscription, systemConfig);
+
+      await expect(svc.register(REGISTER_DTO)).rejects.toThrow(ConflictException);
+    });
+
+    it('generates a local|<hex> auth0Sub when no auth0 client is configured', async () => {
+      systemConfig.getBoolean.mockResolvedValue(false);
+      const svc = await buildLocalModeService(prisma, subscription, systemConfig);
+
+      await svc.register(REGISTER_DTO);
+
+      const call = prisma.user.create.mock.calls[0][0] as { data: { auth0Sub: string } };
+      expect(call.data.auth0Sub).toMatch(/^local\|[0-9a-f]{32}$/);
+    });
+  });
+
+  // ── Auth0 mode ─────────────────────────────────────────────────────────────
+
+  describe('Auth0 mode (useAuth0=true, Management client configured)', () => {
+    let auth0Users: { create: jest.Mock; update: jest.Mock };
+
+    beforeEach(() => {
+      auth0Users = {
+        create: jest.fn().mockResolvedValue({ user_id: 'auth0|newuser123' }),
+        update: jest.fn().mockResolvedValue({}),
+      };
+      (ManagementClient as jest.Mock).mockImplementation(() => ({ users: auth0Users }));
+    });
+
+    it('returns { message } instead of access_token', async () => {
+      systemConfig.getBoolean.mockResolvedValue(true);
+      const svc = await buildAuth0ModeService(prisma, subscription, systemConfig);
+
+      const result = await svc.register(REGISTER_DTO);
+
+      expect('message' in result).toBe(true);
+      expect('access_token' in result).toBe(false);
+    });
+
+    it('calls auth0Management.users.create with email and password', async () => {
+      systemConfig.getBoolean.mockResolvedValue(true);
+      const svc = await buildAuth0ModeService(prisma, subscription, systemConfig);
+
+      await svc.register(REGISTER_DTO);
+
+      expect(auth0Users.create).toHaveBeenCalledWith(
+        expect.objectContaining({ email: REGISTER_DTO.email, password: REGISTER_DTO.password }),
+      );
+    });
+
+    it('calls auth0Management.users.update with app_metadata after tenant is created', async () => {
+      systemConfig.getBoolean.mockResolvedValue(true);
+      const svc = await buildAuth0ModeService(prisma, subscription, systemConfig);
+
+      await svc.register(REGISTER_DTO);
+
+      expect(auth0Users.update).toHaveBeenCalledWith(
+        'auth0|newuser123',
+        expect.objectContaining({
+          app_metadata: expect.objectContaining({ tenant_id: NEW_TENANT.id }),
+        }),
+      );
+    });
+
+    it('throws ConflictException when auth0 user creation fails in Auth0 mode', async () => {
+      systemConfig.getBoolean.mockResolvedValue(true);
+      auth0Users.create.mockRejectedValue(new Error('User already exists'));
+      const svc = await buildAuth0ModeService(prisma, subscription, systemConfig);
+
+      await expect(svc.register(REGISTER_DTO)).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('Auth0 mode (useAuth0=true, no Management client)', () => {
+    it('throws Error when auth0Management is null but useAuth0=true', async () => {
+      systemConfig.getBoolean.mockResolvedValue(true);
+      // buildLocalModeService → no auth0 credentials → auth0Management = null
+      const svc = await buildLocalModeService(prisma, subscription, systemConfig);
+
+      await expect(svc.register(REGISTER_DTO)).rejects.toThrow(
+        'Auth0 Management API not configured',
+      );
+    });
+  });
+
+  describe('mixed mode (auth0 client configured, useAuth0=false)', () => {
+    it('swallows auth0 creation failure and continues with local| sub', async () => {
+      systemConfig.getBoolean.mockResolvedValue(false);
+      (ManagementClient as jest.Mock).mockImplementation(() => ({
+        users: {
+          create: jest.fn().mockRejectedValue(new Error('Auth0 unreachable')),
+          update: jest.fn(),
+        },
+      }));
+      const svc = await buildAuth0ModeService(prisma, subscription, systemConfig);
+
+      const result = await svc.register(REGISTER_DTO);
+
+      expect('access_token' in result).toBe(true);
+      const call = prisma.user.create.mock.calls[0][0] as { data: { auth0Sub: string } };
+      expect(call.data.auth0Sub).toMatch(/^local\|/);
     });
   });
 });
