@@ -311,4 +311,166 @@ describe('SubscriptionService', () => {
       );
     });
   });
+
+  // =========================================================================
+  // 1.3 downgradePlan()
+  // =========================================================================
+
+  describe('downgradePlan()', () => {
+    const TENANT_ID = 'tenant-xyz';
+
+    /** FREE planı için standart DB config mock'u */
+    const setupFreeConfig = () => {
+      prisma.planConfig.findFirst.mockResolvedValue({
+        monthlySessionQuota: 25,
+        testsPerSession: 1,
+        formsPerSession: 1,
+        remindersPerSession: 0,
+        customFormQuota: 0,
+      });
+    };
+
+    it('should close old subscription by setting endDate to now', async () => {
+      setupFreeConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({ totalQuota: 25, usedCount: 0 });
+
+      await service.downgradePlan(TENANT_ID, 'FREE');
+
+      expect(prisma.tenantSubscription.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenantId: TENANT_ID, endDate: null },
+          data: expect.objectContaining({ endDate: expect.any(Date) }),
+        }),
+      );
+    });
+
+    it('should create a new subscription snapshot for the new plan', async () => {
+      setupFreeConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({ totalQuota: 25, usedCount: 0 });
+
+      await service.downgradePlan(TENANT_ID, 'FREE');
+
+      expect(prisma.tenantSubscription.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenantId: TENANT_ID,
+            planCode: 'FREE',
+            monthlySessionQuota: 25,
+          }),
+        }),
+      );
+    });
+
+    it('should REPLACE monthly budget with new plan quota on downgrade (not additive)', async () => {
+      setupFreeConfig();
+      // Mevcut PRO budget: toplam 250
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue({
+        tenantId: TENANT_ID,
+        totalQuota: 250,
+        usedCount: 10,
+      });
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+
+      await service.downgradePlan(TENANT_ID, 'FREE');
+
+      // 250'ye 25 EKLENMEMELI; doğrudan 25 olarak set edilmeli
+      expect(prisma.monthlySessionBudget.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { totalQuota: 25 },           // increment değil, sabit değer
+        }),
+      );
+      expect(prisma.monthlySessionBudget.create).not.toHaveBeenCalled();
+    });
+
+    it('should NOT use increment on downgrade budget update (unlike upgrade)', async () => {
+      setupFreeConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue({
+        totalQuota: 250,
+        usedCount: 5,
+      });
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+
+      await service.downgradePlan(TENANT_ID, 'FREE');
+
+      const updateCall = prisma.monthlySessionBudget.update.mock.calls[0][0];
+      // data.totalQuota bir nesne (increment wrapper) olmamalı, sayı olmalı
+      expect(typeof updateCall.data.totalQuota).toBe('number');
+      expect(updateCall.data.totalQuota).toBe(25);
+    });
+
+    it('should create a fresh budget with new quota when no budget exists for the current month', async () => {
+      setupFreeConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+
+      await service.downgradePlan(TENANT_ID, 'FREE');
+
+      expect(prisma.monthlySessionBudget.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenantId: TENANT_ID,
+            totalQuota: 25,
+          }),
+        }),
+      );
+      expect(prisma.monthlySessionBudget.update).not.toHaveBeenCalled();
+    });
+
+    it('should update tenant.plan to the new (lower) plan', async () => {
+      setupFreeConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+
+      await service.downgradePlan(TENANT_ID, 'FREE');
+
+      expect(prisma.tenant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: TENANT_ID },
+          data: { plan: 'FREE' },
+        }),
+      );
+    });
+
+    it('should NOT call Stripe when no priceId is configured', async () => {
+      setupFreeConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+      stripe.getPriceId.mockReturnValue(null);
+
+      await service.downgradePlan(TENANT_ID, 'FREE');
+
+      expect(stripe.updateSubscription).not.toHaveBeenCalled();
+    });
+
+    it('should call Stripe updateSubscription when priceId is configured and tenant has subscriptionId', async () => {
+      setupFreeConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+      stripe.getPriceId.mockReturnValue('price_free_000');
+      prisma.tenant.findUnique.mockResolvedValue({
+        id: TENANT_ID,
+        subscriptionId: 'sub_stripe_789',
+      });
+
+      await service.downgradePlan(TENANT_ID, 'FREE');
+
+      expect(stripe.updateSubscription).toHaveBeenCalledWith('sub_stripe_789', 'price_free_000');
+    });
+
+    it('should complete downgrade successfully even if Stripe throws an error', async () => {
+      setupFreeConfig();
+      prisma.monthlySessionBudget.findUnique.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({});
+      stripe.getPriceId.mockReturnValue('price_free_000');
+      prisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, subscriptionId: 'sub_789' });
+      stripe.updateSubscription.mockRejectedValue(new Error('Stripe timeout'));
+
+      await expect(service.downgradePlan(TENANT_ID, 'FREE')).resolves.not.toThrow();
+      expect(prisma.tenant.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { plan: 'FREE' } }),
+      );
+    });
+  });
 });
