@@ -473,4 +473,117 @@ describe('SubscriptionService', () => {
       );
     });
   });
+
+  // =========================================================================
+  // 1.4 consumeSession()
+  // =========================================================================
+
+  describe('consumeSession()', () => {
+    const TENANT_ID = 'tenant-consume';
+
+    /** ensureMonthlyBudget içindeki upsert'i başarılı yapan minimum mock */
+    const setupBudgetUpsert = () => {
+      prisma.tenantSubscription.findFirst.mockResolvedValue(null); // sub yok → FREE default
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({
+        tenantId: TENANT_ID,
+        totalQuota: 25,
+        usedCount: 3,
+        year: new Date().getFullYear(),
+        month: new Date().getMonth() + 1,
+      });
+    };
+
+    it('should increment usedCount by exactly 1 using Prisma increment operator', async () => {
+      setupBudgetUpsert();
+      prisma.monthlySessionBudget.update.mockResolvedValue({});
+
+      await service.consumeSession(TENANT_ID);
+
+      expect(prisma.monthlySessionBudget.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { usedCount: { increment: 1 } },
+        }),
+      );
+    });
+
+    it('should call ensureMonthlyBudget (upsert) before the increment update', async () => {
+      setupBudgetUpsert();
+      prisma.monthlySessionBudget.update.mockResolvedValue({});
+
+      await service.consumeSession(TENANT_ID);
+
+      // upsert önce, update sonra çağrılmalı
+      const upsertOrder = prisma.monthlySessionBudget.upsert.mock.invocationCallOrder[0];
+      const updateOrder = prisma.monthlySessionBudget.update.mock.invocationCallOrder[0];
+      expect(upsertOrder).toBeLessThan(updateOrder);
+    });
+
+    it('should use current year and month in the update where clause', async () => {
+      // Zamanı sabit bir noktaya kilitle
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2025-08-15T10:00:00Z'));
+
+      setupBudgetUpsert();
+      prisma.monthlySessionBudget.update.mockResolvedValue({});
+
+      await service.consumeSession(TENANT_ID);
+
+      expect(prisma.monthlySessionBudget.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenantId_year_month: {
+              tenantId: TENANT_ID,
+              year: 2025,
+              month: 8,
+            },
+          },
+        }),
+      );
+
+      jest.useRealTimers();
+    });
+
+    it('should pass tenantId to the update where clause', async () => {
+      setupBudgetUpsert();
+      prisma.monthlySessionBudget.update.mockResolvedValue({});
+
+      await service.consumeSession(TENANT_ID);
+
+      const updateCall = prisma.monthlySessionBudget.update.mock.calls[0][0];
+      expect(updateCall.where.tenantId_year_month.tenantId).toBe(TENANT_ID);
+    });
+
+    it('should upsert budget with FREE default quota when no active subscription exists', async () => {
+      // Aktif abonelik yok → ensureMonthlyBudget FREE quota (25) kullanmalı
+      prisma.tenantSubscription.findFirst.mockResolvedValue(null);
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({ totalQuota: 25, usedCount: 0 });
+      prisma.monthlySessionBudget.update.mockResolvedValue({});
+
+      await service.consumeSession(TENANT_ID);
+
+      expect(prisma.monthlySessionBudget.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ totalQuota: 25 }),
+        }),
+      );
+    });
+
+    it('should upsert budget with subscription quota when active subscription exists', async () => {
+      // Aktif PRO abonelik var → ensureMonthlyBudget 250 kullanmalı
+      prisma.tenantSubscription.findFirst.mockResolvedValue({
+        monthlySessionQuota: 250,
+        endDate: null,
+      });
+      prisma.monthlySessionBudget.upsert.mockResolvedValue({ totalQuota: 250, usedCount: 5 });
+      prisma.monthlySessionBudget.update.mockResolvedValue({});
+
+      await service.consumeSession(TENANT_ID);
+
+      expect(prisma.monthlySessionBudget.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ totalQuota: 250 }),
+        }),
+      );
+    });
+  });
 });
