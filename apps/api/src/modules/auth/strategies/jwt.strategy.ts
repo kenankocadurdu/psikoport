@@ -84,6 +84,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('Token missing tenant_id claim');
     }
 
+    // role claim'i JWT'den oku (DB roundtrip'ini azaltmak için)
+    const role =
+      payload.role ??
+      (audience ? (payload[`${audience}/role`] as string | undefined) : undefined);
+
     const user = await this.prisma.user.findFirst({
       where: {
         auth0Sub: payload.sub,
@@ -102,7 +107,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       userId: user.id,
       email: user.email,
       fullName: user.fullName,
-      role: user.role,
+      role: role ?? user.role,
       is2faEnabled: user.is2faEnabled,
     };
   }
