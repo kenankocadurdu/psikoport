@@ -497,3 +497,190 @@ describe('FormSubmissionsService – 7.2 createAndComplete()', () => {
     expect(crisisQueue.add).toHaveBeenCalledTimes(1);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7.4 submitByToken()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('FormSubmissionsService – 7.4 submitByToken()', () => {
+  let service: FormSubmissionsService;
+  let prisma: ReturnType<typeof makePrisma>;
+  let crisisQueue: { add: jest.Mock };
+  let scoringQueue: { add: jest.Mock };
+
+  const CLIENT_ID = 'client-token-1';
+  const PSYCHOLOGIST_ID = 'psychologist-token-1';
+
+  const TOKEN_PAYLOAD = {
+    clientId: CLIENT_ID,
+    formDefinitionId: FORM_DEF_ID,
+    tenantId: TENANT_ID,
+    psychologistId: PSYCHOLOGIST_ID,
+  };
+
+  const BASE_FORM_DEF = {
+    id: FORM_DEF_ID,
+    code: 'PHQ9',
+    version: 2,
+    scoringConfig: null as unknown,
+    schema: null as unknown,
+  };
+
+  const CREATED_SUBMISSION = { id: SUBMISSION_ID, completionStatus: 'DRAFT' };
+
+  beforeEach(async () => {
+    prisma = makePrisma();
+    crisisQueue = { add: jest.fn().mockResolvedValue(undefined) };
+    scoringQueue = { add: jest.fn().mockResolvedValue(undefined) };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        FormSubmissionsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: getQueueToken('scoring'), useValue: scoringQueue },
+        { provide: getQueueToken('crisis-alert'), useValue: crisisQueue },
+      ],
+    }).compile();
+
+    service = module.get<FormSubmissionsService>(FormSubmissionsService);
+
+    // Happy-path defaults — both submitByToken and inner create() call these
+    prisma.$executeRaw.mockResolvedValue(1);
+    prisma.client.findFirst.mockResolvedValue({ id: CLIENT_ID, tenantId: TENANT_ID });
+    prisma.formDefinition.findFirst.mockResolvedValue(BASE_FORM_DEF);
+    prisma.formSubmission.create.mockResolvedValue(CREATED_SUBMISSION);
+  });
+
+  // ── Tenant context ────────────────────────────────────────────────────────
+
+  it('sets tenant context via $executeRaw before other operations', async () => {
+    await service.submitByToken(TOKEN_PAYLOAD, {
+      responses: { q1: 'a' },
+      completionStatus: 'DRAFT',
+    });
+    expect(prisma.$executeRaw).toHaveBeenCalled();
+  });
+
+  // ── Client validation ─────────────────────────────────────────────────────
+
+  it('queries client with clientId and tenantId from tokenPayload', async () => {
+    await service.submitByToken(TOKEN_PAYLOAD, {
+      responses: { q1: 'a' },
+      completionStatus: 'DRAFT',
+    });
+    expect(prisma.client.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: CLIENT_ID, tenantId: TENANT_ID },
+      }),
+    );
+  });
+
+  it('throws ForbiddenException when client not found in tenant', async () => {
+    prisma.client.findFirst.mockResolvedValue(null);
+    await expect(
+      service.submitByToken(TOKEN_PAYLOAD, { responses: {}, completionStatus: 'DRAFT' }),
+    ).rejects.toThrow('Danışan bulunamadı veya erişim yetkiniz yok');
+  });
+
+  // ── Form definition lookup ────────────────────────────────────────────────
+
+  it('queries formDef with isActive:true and tenantId OR null', async () => {
+    await service.submitByToken(TOKEN_PAYLOAD, {
+      responses: { q1: 'a' },
+      completionStatus: 'DRAFT',
+    });
+    expect(prisma.formDefinition.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: FORM_DEF_ID,
+          isActive: true,
+          OR: [{ tenantId: null }, { tenantId: TENANT_ID }],
+        }),
+      }),
+    );
+  });
+
+  it('throws NotFoundException when formDef not found', async () => {
+    // First call (submitByToken level) returns null → NotFoundException thrown
+    prisma.formDefinition.findFirst.mockResolvedValueOnce(null);
+    await expect(
+      service.submitByToken(TOKEN_PAYLOAD, { responses: {}, completionStatus: 'DRAFT' }),
+    ).rejects.toThrow('Form tanımı bulunamadı');
+  });
+
+  // ── createDto construction ────────────────────────────────────────────────
+
+  it('passes clientId and formDefinitionId from tokenPayload to create()', async () => {
+    await service.submitByToken(TOKEN_PAYLOAD, {
+      responses: { q1: 'answer' },
+      completionStatus: 'DRAFT',
+    });
+    // create() will call formSubmission.create — verify clientId in the data
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          clientId: CLIENT_ID,
+          formDefinitionId: FORM_DEF_ID,
+        }),
+      }),
+    );
+  });
+
+  it('passes responses from dto to create()', async () => {
+    const responses = { mood: '2', sleep: '3' };
+    await service.submitByToken(TOKEN_PAYLOAD, { responses, completionStatus: 'DRAFT' });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ responses }),
+      }),
+    );
+  });
+
+  it('passes psychologistId from tokenPayload to create()', async () => {
+    await service.submitByToken(TOKEN_PAYLOAD, {
+      responses: { q1: 'a' },
+      completionStatus: 'DRAFT',
+    });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ psychologistId: PSYCHOLOGIST_ID }),
+      }),
+    );
+  });
+
+  // ── completionStatus delegation ───────────────────────────────────────────
+
+  it('creates DRAFT submission when dto.completionStatus is DRAFT', async () => {
+    await service.submitByToken(TOKEN_PAYLOAD, {
+      responses: { q1: 'a' },
+      completionStatus: 'DRAFT',
+    });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ completionStatus: 'DRAFT' }),
+      }),
+    );
+  });
+
+  it('creates COMPLETE submission when dto.completionStatus is COMPLETE', async () => {
+    await service.submitByToken(TOKEN_PAYLOAD, {
+      responses: { q1: 'a' },
+      completionStatus: 'COMPLETE',
+    });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ completionStatus: 'COMPLETE' }),
+      }),
+    );
+  });
+
+  // ── Return value ──────────────────────────────────────────────────────────
+
+  it('returns the submission from create()', async () => {
+    const result = await service.submitByToken(TOKEN_PAYLOAD, {
+      responses: { q1: 'a' },
+      completionStatus: 'DRAFT',
+    });
+    expect(result).toBe(CREATED_SUBMISSION);
+  });
+});
