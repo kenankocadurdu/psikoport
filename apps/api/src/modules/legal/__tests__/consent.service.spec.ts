@@ -292,3 +292,240 @@ describe('ConsentService – 9.2 revokeConsent()', () => {
     expect(result).toBeUndefined();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9.3 getPendingConsentsForUser()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('ConsentService – 9.3 getPendingConsentsForUser()', () => {
+  let service: ConsentService;
+  let prisma: ReturnType<typeof makePrisma>;
+
+  const NOW = new Date('2025-11-01T00:00:00.000Z');
+  const USER_ID_LOCAL = 'user-pending-1';
+
+  // Required types in iteration order (matches REQUIRED_CONSENT_TYPES constant)
+  const TYPE_KVKK = 'KVKK_DATA_PROCESSING' as ConsentType;
+  const TYPE_SPECIAL = 'KVKK_SPECIAL_DATA' as ConsentType;
+  const TYPE_TOS = 'PLATFORM_TOS' as ConsentType;
+
+  function makeConsentTextRecord(
+    type: ConsentType,
+    version: number,
+    diffFromPrevious: string | null = null,
+  ) {
+    return {
+      id: `ctext-${type}-${version}`,
+      consentType: type,
+      version,
+      title: `${type} v${version}`,
+      bodyHtml: '<p>metin</p>',
+      bodyHash: 'hash',
+      effectiveFrom: new Date('2025-01-01'),
+      diffFromPrevious,
+    };
+  }
+
+  function makeUserConsent(type: ConsentType, textVersion: number) {
+    return {
+      id: `consent-${type}`,
+      tenantId: TENANT_ID,
+      userId: USER_ID_LOCAL,
+      clientId: null,
+      consentType: type,
+      consentTextVersion: textVersion,
+      isGranted: true,
+      revokedAt: null,
+    };
+  }
+
+  /**
+   * Build a consentText.findFirst mock that returns different records per consentType.
+   * Pass null for a type to simulate no text existing for that type.
+   */
+  function mockConsentTexts(map: Partial<Record<string, ReturnType<typeof makeConsentTextRecord> | null>>) {
+    prisma.consentText.findFirst.mockImplementation(
+      ({ where }: { where: { consentType: string } }) =>
+        Promise.resolve(map[where.consentType] ?? null),
+    );
+  }
+
+  beforeEach(async () => {
+    prisma = makePrisma();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ConsentService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+
+    service = module.get<ConsentService>(ConsentService);
+
+    jest.useFakeTimers();
+    jest.setSystemTime(NOW);
+
+    // Default: no granted consents
+    prisma.consent.findMany.mockResolvedValue([]);
+
+    // Default: all three types have latest version 1
+    mockConsentTexts({
+      [TYPE_KVKK]: makeConsentTextRecord(TYPE_KVKK, 1),
+      [TYPE_SPECIAL]: makeConsentTextRecord(TYPE_SPECIAL, 1),
+      [TYPE_TOS]: makeConsentTextRecord(TYPE_TOS, 1),
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  // ── User consent query ────────────────────────────────────────────────────
+
+  it('queries consent.findMany with tenantId, userId, clientId:null, isGranted:true, revokedAt:null', async () => {
+    await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
+    expect(prisma.consent.findMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: TENANT_ID,
+        userId: USER_ID_LOCAL,
+        clientId: null,
+        isGranted: true,
+        revokedAt: null,
+      },
+    });
+  });
+
+  // ── ConsentText lookup ────────────────────────────────────────────────────
+
+  it('queries consentText.findFirst for each required type with effectiveFrom lte now', async () => {
+    await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
+    // Called once per required type (3 types)
+    expect(prisma.consentText.findFirst).toHaveBeenCalledTimes(3);
+    expect(prisma.consentText.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          consentType: TYPE_KVKK,
+          effectiveFrom: { lte: NOW },
+        }),
+      }),
+    );
+  });
+
+  // ── Pending detection ─────────────────────────────────────────────────────
+
+  it('returns all three types as pending when user has no granted consents', async () => {
+    const result = await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
+    expect(result).toHaveLength(3);
+    expect(result.map((r) => r.consentType)).toEqual(
+      expect.arrayContaining([TYPE_KVKK, TYPE_SPECIAL, TYPE_TOS]),
+    );
+  });
+
+  it('returns empty array when user has all consents at latest version', async () => {
+    prisma.consent.findMany.mockResolvedValue([
+      makeUserConsent(TYPE_KVKK, 1),
+      makeUserConsent(TYPE_SPECIAL, 1),
+      makeUserConsent(TYPE_TOS, 1),
+    ]);
+    const result = await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
+    expect(result).toHaveLength(0);
+  });
+
+  it('includes type in pending when latest version > granted version', async () => {
+    // User granted v1, latest is v2
+    prisma.consent.findMany.mockResolvedValue([makeUserConsent(TYPE_KVKK, 1)]);
+    mockConsentTexts({
+      [TYPE_KVKK]: makeConsentTextRecord(TYPE_KVKK, 2), // newer version
+      [TYPE_SPECIAL]: makeConsentTextRecord(TYPE_SPECIAL, 1),
+      [TYPE_TOS]: makeConsentTextRecord(TYPE_TOS, 1),
+    });
+    // User also granted SPECIAL and TOS v1
+    prisma.consent.findMany.mockResolvedValue([
+      makeUserConsent(TYPE_KVKK, 1),
+      makeUserConsent(TYPE_SPECIAL, 1),
+      makeUserConsent(TYPE_TOS, 1),
+    ]);
+
+    const result = await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
+    expect(result).toHaveLength(1);
+    expect(result[0].consentType).toBe(TYPE_KVKK);
+    expect(result[0].version).toBe(2);
+  });
+
+  it('does NOT include type in pending when latest version equals granted version', async () => {
+    prisma.consent.findMany.mockResolvedValue([
+      makeUserConsent(TYPE_KVKK, 2),
+      makeUserConsent(TYPE_SPECIAL, 1),
+      makeUserConsent(TYPE_TOS, 1),
+    ]);
+    mockConsentTexts({
+      [TYPE_KVKK]: makeConsentTextRecord(TYPE_KVKK, 2), // same as granted
+      [TYPE_SPECIAL]: makeConsentTextRecord(TYPE_SPECIAL, 1),
+      [TYPE_TOS]: makeConsentTextRecord(TYPE_TOS, 1),
+    });
+
+    const result = await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
+    expect(result.map((r) => r.consentType)).not.toContain(TYPE_KVKK);
+  });
+
+  it('skips type when no consentText exists for it', async () => {
+    mockConsentTexts({
+      [TYPE_KVKK]: makeConsentTextRecord(TYPE_KVKK, 1),
+      [TYPE_SPECIAL]: null, // no text for this type
+      [TYPE_TOS]: makeConsentTextRecord(TYPE_TOS, 1),
+    });
+
+    const result = await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
+    expect(result.map((r) => r.consentType)).not.toContain(TYPE_SPECIAL);
+    expect(result).toHaveLength(2);
+  });
+
+  it('uses highest granted version when user has multiple consents for the same type', async () => {
+    // Two consents for KVKK — v1 and v2. Latest is v2. Should NOT be pending.
+    prisma.consent.findMany.mockResolvedValue([
+      makeUserConsent(TYPE_KVKK, 1),
+      makeUserConsent(TYPE_KVKK, 2), // higher version wins
+      makeUserConsent(TYPE_SPECIAL, 1),
+      makeUserConsent(TYPE_TOS, 1),
+    ]);
+    mockConsentTexts({
+      [TYPE_KVKK]: makeConsentTextRecord(TYPE_KVKK, 2),
+      [TYPE_SPECIAL]: makeConsentTextRecord(TYPE_SPECIAL, 1),
+      [TYPE_TOS]: makeConsentTextRecord(TYPE_TOS, 1),
+    });
+
+    const result = await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
+    expect(result.map((r) => r.consentType)).not.toContain(TYPE_KVKK);
+  });
+
+  // ── Returned item shape ───────────────────────────────────────────────────
+
+  it('pending item includes consentType, version, and title', async () => {
+    const result = await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
+    const kvkk = result.find((r) => r.consentType === TYPE_KVKK);
+    expect(kvkk).toMatchObject({
+      consentType: TYPE_KVKK,
+      version: 1,
+      title: `${TYPE_KVKK} v1`,
+    });
+  });
+
+  it('includes diffFromPrevious when set on consentText', async () => {
+    mockConsentTexts({
+      [TYPE_KVKK]: makeConsentTextRecord(TYPE_KVKK, 2, '+ yeni madde eklendi'),
+      [TYPE_SPECIAL]: makeConsentTextRecord(TYPE_SPECIAL, 1),
+      [TYPE_TOS]: makeConsentTextRecord(TYPE_TOS, 1),
+    });
+
+    const result = await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
+    const kvkk = result.find((r) => r.consentType === TYPE_KVKK);
+    expect(kvkk?.diffFromPrevious).toBe('+ yeni madde eklendi');
+  });
+
+  it('omits diffFromPrevious (undefined) when null on consentText', async () => {
+    // Default setup has null diffFromPrevious
+    const result = await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
+    const kvkk = result.find((r) => r.consentType === TYPE_KVKK);
+    expect(kvkk?.diffFromPrevious).toBeUndefined();
+  });
+});
