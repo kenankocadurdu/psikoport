@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationService } from '../../modules/common/services/notification.service';
 import { runWithTenantContext } from '../../modules/common/context';
+import { EncryptionService } from '../../modules/common/services/encryption.service';
 function addHours(date: Date, hours: number): Date {
   const d = new Date(date);
   d.setTime(d.getTime() + hours * 60 * 60 * 1000);
@@ -35,8 +36,23 @@ export class AppointmentReminderProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notification: NotificationService,
+    private readonly encryption: EncryptionService,
   ) {
     super();
+  }
+
+  private async dec(tenantId: string, value: string | null | undefined): Promise<string | null> {
+    if (!value) return null;
+    try {
+      const buf = Buffer.from(value, 'base64');
+      if (buf.length < 29) return value;
+      const nonce = buf.subarray(0, 12);
+      const authTag = buf.subarray(12, 28);
+      const ciphertext = buf.subarray(28);
+      return await this.encryption.decrypt(tenantId, ciphertext, nonce, authTag);
+    } catch {
+      return value;
+    }
   }
 
   async process(job: Job<Record<string, never>>): Promise<void> {
@@ -72,13 +88,18 @@ export class AppointmentReminderProcessor extends WorkerHost {
           ? `<p>Online görüşme linki: <a href="${apt.videoMeetingUrl}" style="color: #2563eb;">Görüşmeye katıl</a></p>`
           : '';
 
-        if (apt.client.phone) {
+        const [phone, email] = await Promise.all([
+          this.dec(apt.tenantId, apt.client.phone),
+          this.dec(apt.tenantId, apt.client.email),
+        ]);
+
+        if (phone) {
           const msg = `Yarin ${timeText} randevunuz var. Psikoport.`;
-          await this.notification.sendSms(apt.client.phone, msg, 'appointment-reminder');
+          await this.notification.sendSms(phone, msg, 'appointment-reminder');
         }
-        if (apt.client.email) {
+        if (email) {
           await this.notification.sendEmail(
-            apt.client.email,
+            email,
             'appointment-reminder',
             {
               clientName,
@@ -111,10 +132,11 @@ export class AppointmentReminderProcessor extends WorkerHost {
 
     for (const apt of appointments) {
       await runWithTenantContext({ tenantId: apt.tenantId, userId: 'system' }, async () => {
-        if (apt.client.phone) {
+        const phone = await this.dec(apt.tenantId, apt.client.phone);
+        if (phone) {
           const timeText = formatAppointmentTime(apt.startTime);
           const msg = `1 saat icinde randevunuz var: ${timeText}. Psikoport.`;
-          await this.notification.sendSms(apt.client.phone, msg, 'appointment-reminder');
+          await this.notification.sendSms(phone, msg, 'appointment-reminder');
         }
       });
     }

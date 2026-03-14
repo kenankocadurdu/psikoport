@@ -5,6 +5,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { NotificationService } from '../../modules/common/services/notification.service';
 import type { AppointmentNotificationJobData } from '../../modules/calendar/scheduling/types';
 import { runWithTenantContext } from '../../modules/common/context';
+import { EncryptionService } from '../../modules/common/services/encryption.service';
 
 @Processor('appointment-notification', {
   concurrency: 3,
@@ -15,8 +16,23 @@ export class AppointmentNotificationProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notification: NotificationService,
+    private readonly encryption: EncryptionService,
   ) {
     super();
+  }
+
+  private async dec(tenantId: string, value: string | null | undefined): Promise<string | null> {
+    if (!value) return null;
+    try {
+      const buf = Buffer.from(value, 'base64');
+      if (buf.length < 29) return value;
+      const nonce = buf.subarray(0, 12);
+      const authTag = buf.subarray(12, 28);
+      const ciphertext = buf.subarray(28);
+      return await this.encryption.decrypt(tenantId, ciphertext, nonce, authTag);
+    } catch {
+      return value;
+    }
   }
 
   async process(job: Job<AppointmentNotificationJobData>): Promise<void> {
@@ -66,8 +82,11 @@ export class AppointmentNotificationProcessor extends WorkerHost {
     });
     if (!appointment?.client?.phone) return;
 
+    const phone = await this.dec(appointment.tenantId, appointment.client.phone);
+    if (!phone) return;
+
     const msg = `Online gorusmeniz icin baglanti: ${videoMeetingUrl} - Psikoport`;
-    await this.notification.sendSms(appointment.client.phone, msg, 'appointment-confirmation');
+    await this.notification.sendSms(phone, msg, 'appointment-confirmation');
     this.logger.log(`Appointment created SMS sent for ${appointmentId}`);
   }
 }

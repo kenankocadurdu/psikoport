@@ -15,8 +15,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { TagAutocomplete } from "./TagAutocomplete";
-import { getKEK } from "@/lib/crypto/key-store";
-import { encryptNoteContent } from "@/lib/crypto/encrypt-note";
 import { createNote, type CreateNotePayload } from "@/lib/api/notes";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -35,7 +33,6 @@ interface CreateNoteDialogProps {
   onOpenChange: (open: boolean) => void;
   clientId: string;
   onSuccess: () => void;
-  onUnlockRequired: () => void;
 }
 
 export function CreateNoteDialog({
@@ -43,7 +40,6 @@ export function CreateNoteDialog({
   onOpenChange,
   clientId,
   onSuccess,
-  onUnlockRequired,
 }: CreateNoteDialogProps) {
   const [content, setContent] = React.useState("");
   const [sessionDate, setSessionDate] = React.useState(() =>
@@ -57,15 +53,8 @@ export function CreateNoteDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const kek = getKEK();
-    if (!kek) {
-      onUnlockRequired();
-      return;
-    }
-
     setLoading(true);
     try {
-      const encrypted = await encryptNoteContent(content, kek);
       const payload: CreateNotePayload = {
         sessionDate,
         sessionNumber: sessionNumber ? parseInt(sessionNumber, 10) : undefined,
@@ -73,7 +62,7 @@ export function CreateNoteDialog({
         tags: tags.length ? tags : undefined,
         symptomCategories: tags.length ? tags : undefined,
         moodRating,
-        ...encrypted,
+        content,
       };
       await createNote(clientId, payload);
       toast.success("Not kaydedildi.");
@@ -98,7 +87,7 @@ export function CreateNoteDialog({
         <DialogHeader>
           <DialogTitle>Yeni Seans Notu</DialogTitle>
           <DialogDescription>
-            Not içeriği tarayıcıda şifrelenerek kaydedilir.
+            Not içeriği sunucu tarafında şifrelenerek kaydedilir.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">

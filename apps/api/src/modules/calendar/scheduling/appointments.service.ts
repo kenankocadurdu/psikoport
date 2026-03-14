@@ -25,6 +25,7 @@ import type { AppointmentNotificationJobData } from './types';
 import { PaymentsService } from '../../finance/payments.service';
 import { SubscriptionService } from '../../subscriptions/subscription.service';
 import { StripeService } from '../../payments/stripe.service';
+import { EncryptionService } from '../../common/services/encryption.service';
 
 const SLOT_LOCK_TTL = 300; // 5 minutes
 const SLOT_LOCK_PREFIX = 'appointment:slot:';
@@ -44,7 +45,22 @@ export class AppointmentsService {
     private readonly paymentsService: PaymentsService,
     private readonly subscriptionService: SubscriptionService,
     private readonly stripeService: StripeService,
+    private readonly encryption: EncryptionService,
   ) {}
+
+  private async decryptClientPii(tenantId: string, value: string | null | undefined): Promise<string | null> {
+    if (!value) return null;
+    try {
+      const buf = Buffer.from(value, 'base64');
+      if (buf.length < 29) return value;
+      const nonce = buf.subarray(0, 12);
+      const authTag = buf.subarray(12, 28);
+      const ciphertext = buf.subarray(28);
+      return await this.encryption.decrypt(tenantId, ciphertext, nonce, authTag);
+    } catch {
+      return value;
+    }
+  }
 
   private lockKey(psychologistId: string, startTime: Date): string {
     return `${SLOT_LOCK_PREFIX}${psychologistId}:${startTime.toISOString()}`;
@@ -280,7 +296,16 @@ export class AppointmentsService {
     if (!appointment) {
       throw new NotFoundException('Randevu bulunamadı');
     }
-    return appointment;
+
+    const [email, phone] = await Promise.all([
+      this.decryptClientPii(tenantId, appointment.client.email),
+      this.decryptClientPii(tenantId, appointment.client.phone),
+    ]);
+
+    return {
+      ...appointment,
+      client: { ...appointment.client, email, phone },
+    };
   }
 
   async update(

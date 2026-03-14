@@ -1,6 +1,5 @@
 import {
   IsArray,
-  IsBase64,
   IsDateString,
   IsInt,
   IsOptional,
@@ -44,21 +43,6 @@ export class CreateNoteDto {
   @Max(480)
   durationMinutes?: number;
 
-  @IsBase64()
-  encryptedContent!: string;
-
-  @IsBase64()
-  encryptedDek!: string;
-
-  @IsBase64()
-  contentNonce!: string;
-
-  @IsBase64()
-  contentAuthTag!: string;
-
-  @IsBase64()
-  dekNonce!: string;
-
-  @IsBase64()
-  dekAuthTag!: string;
+  @IsString()
+  content!: string;
 }

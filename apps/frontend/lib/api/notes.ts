@@ -31,12 +31,7 @@ export interface NoteDetail {
   symptomCategories: string[];
   moodRating: number | null;
   durationMinutes: number | null;
-  encryptedContent: string;
-  encryptedDek: string;
-  contentNonce: string;
-  contentAuthTag: string;
-  dekNonce: string;
-  dekAuthTag: string;
+  content: string;
   createdAt: string;
 }
 
@@ -48,12 +43,7 @@ export interface CreateNotePayload {
   symptomCategories?: string[];
   moodRating?: number;
   durationMinutes?: number;
-  encryptedContent: string;
-  encryptedDek: string;
-  contentNonce: string;
-  contentAuthTag: string;
-  dekNonce: string;
-  dekAuthTag: string;
+  content: string;
 }
 
 export interface NoteQueryParams {

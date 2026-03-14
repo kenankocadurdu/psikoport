@@ -14,6 +14,20 @@ export class ExportService {
     private readonly encryption: EncryptionService,
   ) {}
 
+  private async decPii(tenantId: string, value: string | null | undefined): Promise<string | null> {
+    if (!value) return null;
+    try {
+      const buf = Buffer.from(value, 'base64');
+      if (buf.length < 29) return value;
+      const nonce = buf.subarray(0, 12);
+      const authTag = buf.subarray(12, 28);
+      const ciphertext = buf.subarray(28);
+      return await this.encryption.decrypt(tenantId, ciphertext, nonce, authTag);
+    } catch {
+      return value;
+    }
+  }
+
   async exportClientData(
     clientId: string,
     tenantId: string,
@@ -54,14 +68,19 @@ export class ExportService {
       }),
     ]);
 
+    const [decEmail, decPhone] = await Promise.all([
+      this.decPii(tenantId, client.email),
+      this.decPii(tenantId, client.phone),
+    ]);
+
     const payload = {
       exportedAt: new Date().toISOString(),
       client: {
         id: client.id,
         firstName: client.firstName,
         lastName: client.lastName,
-        email: client.email,
-        phone: client.phone,
+        email: decEmail,
+        phone: decPhone,
         birthDate: client.birthDate?.toISOString() ?? null,
         gender: client.gender,
         maritalStatus: client.maritalStatus,
@@ -193,8 +212,8 @@ export class ExportService {
         id: client.id,
         firstName: client.firstName,
         lastName: client.lastName,
-        email: client.email,
-        phone: client.phone,
+        email: await this.decPii(tenantId, client.email),
+        phone: await this.decPii(tenantId, client.phone),
         birthDate: client.birthDate?.toISOString() ?? null,
         gender: client.gender,
         maritalStatus: client.maritalStatus,

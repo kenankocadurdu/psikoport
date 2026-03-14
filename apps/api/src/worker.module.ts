@@ -6,6 +6,7 @@ import { PrismaModule } from './database/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { NotificationModule } from './modules/common/services/notification.module';
 import { LegalModule } from './modules/legal/legal.module';
+import { EncryptionModule } from './modules/common/services/encryption.module';
 
 /**
  * Minimal NestJS module for the BullMQ worker process.
@@ -35,6 +36,7 @@ import { LegalModule } from './modules/legal/legal.module';
     QueueModule,
     NotificationModule,
     LegalModule,
+    EncryptionModule,
   ],
 })
 export class WorkerModule {}

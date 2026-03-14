@@ -13,6 +13,7 @@ import type { UpdateClientDto } from './dto/update-client.dto';
 import type { ClientQueryDto } from './dto/client-query.dto';
 import { AuditLogService, type PaginatedResponse } from '../legal/audit-log.service';
 import { DekCacheService } from '../common/services/dek-cache.service';
+import { EncryptionService } from '../common/services/encryption.service';
 
 @Injectable()
 export class ClientsService {
@@ -20,7 +21,32 @@ export class ClientsService {
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
     private readonly dekCache: DekCacheService,
+    private readonly encryption: EncryptionService,
   ) {}
+
+  /** Encrypt a nullable string PII field → base64(nonce||authTag||ciphertext) */
+  private async enc(tenantId: string, value: string | null | undefined): Promise<string | null> {
+    if (!value) return null;
+    const { ciphertext, nonce, authTag } = await this.encryption.encrypt(tenantId, value);
+    const buf = Buffer.concat([nonce, authTag, ciphertext]);
+    return buf.toString('base64');
+  }
+
+  /** Decrypt a nullable PII field; returns plaintext or null (graceful fallback for non-encrypted legacy values) */
+  private async dec(tenantId: string, value: string | null | undefined): Promise<string | null> {
+    if (!value) return null;
+    try {
+      const buf = Buffer.from(value, 'base64');
+      // Minimum length: 12 (nonce) + 16 (authTag) + 1 (ciphertext) = 29
+      if (buf.length < 29) return value; // legacy plaintext fallback
+      const nonce = buf.subarray(0, 12);
+      const authTag = buf.subarray(12, 28);
+      const ciphertext = buf.subarray(28);
+      return await this.encryption.decrypt(tenantId, ciphertext, nonce, authTag);
+    } catch {
+      return value; // legacy plaintext fallback
+    }
+  }
 
   async create(
     dto: CreateClientDto,
@@ -47,19 +73,25 @@ export class ClientsService {
       });
     }
 
+    const [encTcKimlik, encPhone, encEmail] = await Promise.all([
+      this.enc(tenantId, dto.tcKimlik),
+      this.enc(tenantId, dto.phone),
+      this.enc(tenantId, dto.email),
+    ]);
+
     const client = await this.prisma.client.create({
       data: {
         tenantId,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        tcKimlik: dto.tcKimlik ?? null,
+        tcKimlik: encTcKimlik,
         birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
         gender: dto.gender ?? null,
         maritalStatus: dto.maritalStatus ?? null,
         educationLevel: dto.educationLevel ?? null,
         occupation: dto.occupation ?? null,
-        phone: dto.phone ?? null,
-        email: dto.email ?? null,
+        phone: encPhone,
+        email: encEmail,
         address: dto.address ?? null,
         emergencyContact: (dto.emergencyContact ?? null) as Prisma.InputJsonValue,
         preferredContact: dto.preferredContact ?? [],
@@ -104,12 +136,10 @@ export class ClientsService {
     }
 
     if (query.search && query.search.trim()) {
-      const search = `%${query.search.trim()}%`;
+      const search = query.search.trim();
       where.OR = [
         { firstName: { contains: search, mode: 'insensitive' } },
         { lastName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search } },
       ];
     }
 
@@ -141,17 +171,21 @@ export class ClientsService {
       this.prisma.client.count({ where }),
     ]);
 
-    return {
-      data: data.map((c) => ({
+    const decrypted = await Promise.all(
+      data.map(async (c) => ({
         id: c.id,
         firstName: c.firstName,
         lastName: c.lastName,
-        email: c.email,
-        phone: c.phone,
+        email: await this.dec(tenantId, c.email),
+        phone: await this.dec(tenantId, c.phone),
         status: c.status,
         tags: c.tags,
         createdAt: c.createdAt,
       })),
+    );
+
+    return {
+      data: decrypted,
       meta: {
         page,
         limit,
@@ -168,7 +202,14 @@ export class ClientsService {
     if (!client) {
       throw new NotFoundException('Danışan bulunamadı');
     }
-    return client;
+
+    const [tcKimlik, phone, email] = await Promise.all([
+      this.dec(tenantId, client.tcKimlik),
+      this.dec(tenantId, client.phone),
+      this.dec(tenantId, client.email),
+    ]);
+
+    return { ...client, tcKimlik, phone, email };
   }
 
   async update(
@@ -183,12 +224,18 @@ export class ClientsService {
       throw new NotFoundException('Danışan bulunamadı');
     }
 
+    const [encTcKimlik, encPhone, encEmail] = await Promise.all([
+      dto.tcKimlik !== undefined ? this.enc(tenantId, dto.tcKimlik) : Promise.resolve(undefined),
+      dto.phone !== undefined ? this.enc(tenantId, dto.phone) : Promise.resolve(undefined),
+      dto.email !== undefined ? this.enc(tenantId, dto.email) : Promise.resolve(undefined),
+    ]);
+
     const updated = await this.prisma.client.update({
       where: { id },
       data: {
         ...(dto.firstName !== undefined && { firstName: dto.firstName }),
         ...(dto.lastName !== undefined && { lastName: dto.lastName }),
-        ...(dto.tcKimlik !== undefined && { tcKimlik: dto.tcKimlik ?? null }),
+        ...(dto.tcKimlik !== undefined && { tcKimlik: encTcKimlik ?? null }),
         ...(dto.birthDate !== undefined && {
           birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
         }),
@@ -202,8 +249,8 @@ export class ClientsService {
         ...(dto.occupation !== undefined && {
           occupation: dto.occupation ?? null,
         }),
-        ...(dto.phone !== undefined && { phone: dto.phone ?? null }),
-        ...(dto.email !== undefined && { email: dto.email ?? null }),
+        ...(dto.phone !== undefined && { phone: encPhone ?? null }),
+        ...(dto.email !== undefined && { email: encEmail ?? null }),
         ...(dto.address !== undefined && { address: dto.address ?? null }),
         ...(dto.emergencyContact !== undefined && {
           emergencyContact: dto.emergencyContact as Prisma.InputJsonValue,
@@ -283,13 +330,18 @@ export class ClientsService {
       }
 
       try {
+        const [encPhone, encEmail] = await Promise.all([
+          this.enc(tenantId, dto.phone?.trim() || null),
+          this.enc(tenantId, dto.email?.trim() || null),
+        ]);
+
         await this.prisma.client.create({
           data: {
             tenantId,
             firstName: (dto.firstName ?? '').trim(),
             lastName: (dto.lastName ?? '').trim(),
-            phone: dto.phone?.trim() || null,
-            email: dto.email?.trim() || null,
+            phone: encPhone,
+            email: encEmail,
             birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
             gender: dto.gender?.trim() || null,
             complaintAreas: dto.complaintAreas ?? [],

@@ -14,6 +14,7 @@ import { PrismaModule } from '../database/prisma.module';
 import { NotificationModule } from '../modules/common/services/notification.module';
 import { MetricsService } from '../modules/common/services/metrics.service';
 import { DekCacheService } from '../modules/common/services/dek-cache.service';
+import { EncryptionService } from '../modules/common/services/encryption.service';
 import { IdempotencyGuard } from './guards/idempotency.guard';
 
 const QUEUE_DEPTH_INTERVAL_MS = 15_000;
@@ -123,6 +124,7 @@ const paymentReminderQueue = BullModule.registerQueue({
   providers: [
     IdempotencyGuard,
     DekCacheService,
+    EncryptionService,
     MetricsService,
     ScoringProcessor,
     CrisisAlertProcessor,

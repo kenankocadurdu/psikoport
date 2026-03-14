@@ -8,9 +8,10 @@ import { ExportModule } from './export/export.module';
 import { PrismaModule } from '../../database/prisma.module';
 import { SubscriptionModule } from '../subscriptions/subscription.module';
 import { QuotaGuard } from '../common/guards/quota.guard';
+import { EncryptionModule } from '../common/services/encryption.module';
 
 @Module({
-  imports: [PrismaModule, NotesModule, TimelineModule, FilesModule, ExportModule, SubscriptionModule],
+  imports: [PrismaModule, NotesModule, TimelineModule, FilesModule, ExportModule, SubscriptionModule, EncryptionModule],
   controllers: [ClientsController],
   providers: [ClientsService, QuotaGuard],
   exports: [ClientsService],

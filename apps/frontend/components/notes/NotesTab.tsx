@@ -18,8 +18,6 @@ import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { CreateNoteDialog } from "./CreateNoteDialog";
 import { NoteDetailDialog } from "./NoteDetailDialog";
-import { KEKUnlockDialog } from "./KEKUnlockDialog";
-import { getKEK } from "@/lib/crypto/key-store";
 
 interface NotesTabProps {
   clientId: string;
@@ -30,9 +28,7 @@ export function NotesTab({ clientId, autoOpen }: NotesTabProps) {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = React.useState(false);
   const [detailNoteId, setDetailNoteId] = React.useState<string | null>(null);
-  const [unlockOpen, setUnlockOpen] = React.useState(false);
   const [needsRefresh, setNeedsRefresh] = React.useState(0);
-  const [unlockRetryKey, setUnlockRetryKey] = React.useState(0);
   const autoOpenTriggered = React.useRef(false);
 
   const { data, isLoading } = useQuery({
@@ -44,24 +40,10 @@ export function NotesTab({ clientId, autoOpen }: NotesTabProps) {
   React.useEffect(() => {
     if (autoOpen && !autoOpenTriggered.current) {
       autoOpenTriggered.current = true;
-      handleOpenCreate();
+      setCreateOpen(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpen]);
-
-  const handleOpenDetail = (noteId: string) => {
-    setDetailNoteId(noteId);
-    if (!getKEK()) setUnlockOpen(true);
-  };
-
-  const handleOpenCreate = () => {
-    setCreateOpen(true);
-    if (!getKEK()) setUnlockOpen(true);
-  };
-
-  const handleUnlockSuccess = () => {
-    setUnlockRetryKey((k) => k + 1);
-  };
 
   const notes = data?.data ?? [];
 
@@ -69,25 +51,11 @@ export function NotesTab({ clientId, autoOpen }: NotesTabProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium">Seans Notları</h2>
-        <Button size="sm" onClick={handleOpenCreate}>
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
           <Plus className="size-4" />
           Yeni Not
         </Button>
       </div>
-
-      {!getKEK() && (
-        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm">
-          Notları görüntülemek veya oluşturmak için şifre çözme parolanızı girin.
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-3"
-            onClick={() => setUnlockOpen(true)}
-          >
-            Kilidi Aç
-          </Button>
-        </div>
-      )}
 
       {isLoading ? (
         <div className="flex h-32 items-center justify-center">
@@ -101,7 +69,7 @@ export function NotesTab({ clientId, autoOpen }: NotesTabProps) {
             variant="outline"
             size="sm"
             className="mt-4"
-            onClick={handleOpenCreate}
+            onClick={() => setCreateOpen(true)}
           >
             İlk notu ekle
           </Button>
@@ -122,7 +90,7 @@ export function NotesTab({ clientId, autoOpen }: NotesTabProps) {
               <TableRow
                 key={n.id}
                 className="cursor-pointer"
-                onClick={() => handleOpenDetail(n.id)}
+                onClick={() => setDetailNoteId(n.id)}
               >
                 <TableCell>
                   {format(new Date(n.sessionDate), "d MMM yyyy", { locale: tr })}
@@ -162,7 +130,6 @@ export function NotesTab({ clientId, autoOpen }: NotesTabProps) {
           setNeedsRefresh((r) => r + 1);
           queryClient.invalidateQueries({ queryKey: ["notes", clientId] });
         }}
-        onUnlockRequired={() => setUnlockOpen(true)}
       />
 
       <NoteDetailDialog
@@ -170,14 +137,6 @@ export function NotesTab({ clientId, autoOpen }: NotesTabProps) {
         onOpenChange={(open) => !open && setDetailNoteId(null)}
         clientId={clientId}
         noteId={detailNoteId}
-        onUnlockRequired={() => setUnlockOpen(true)}
-        retryKey={unlockRetryKey}
-      />
-
-      <KEKUnlockDialog
-        open={unlockOpen}
-        onOpenChange={setUnlockOpen}
-        onSuccess={handleUnlockSuccess}
       />
     </div>
   );

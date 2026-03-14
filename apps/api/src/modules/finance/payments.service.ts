@@ -2,10 +2,28 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { PaymentStatus, Prisma } from 'prisma-client';
 import { Decimal } from 'prisma-client/runtime/library';
+import { EncryptionService } from '../common/services/encryption.service';
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly encryption: EncryptionService,
+  ) {}
+
+  private async dec(tenantId: string, value: string | null | undefined): Promise<string | null> {
+    if (!value) return null;
+    try {
+      const buf = Buffer.from(value, 'base64');
+      if (buf.length < 29) return value;
+      const nonce = buf.subarray(0, 12);
+      const authTag = buf.subarray(12, 28);
+      const ciphertext = buf.subarray(28);
+      return await this.encryption.decrypt(tenantId, ciphertext, nonce, authTag);
+    } catch {
+      return value;
+    }
+  }
 
   /**
    * Randevu "completed" olduğunda otomatik ödeme kaydı.
@@ -405,14 +423,16 @@ export class PaymentsService {
       },
     });
 
-    return payments
-      .filter((p) => p.client.phone)
-      .map((p) => ({
+    const decrypted = await Promise.all(
+      payments.map(async (p) => ({
         id: p.id,
         clientId: p.clientId,
         amount: Number(p.amount),
         sessionDate: p.sessionDate,
-        clientPhone: p.client.phone,
-      }));
+        clientPhone: await this.dec(tenantId, p.client.phone),
+      })),
+    );
+
+    return decrypted.filter((p) => p.clientPhone);
   }
 }

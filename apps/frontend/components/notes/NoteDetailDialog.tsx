@@ -9,8 +9,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { getKEK } from "@/lib/crypto/key-store";
-import { decryptNoteContent } from "@/lib/crypto/decrypt-note";
 import { fetchNote, type NoteDetail } from "@/lib/api/notes";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -20,8 +18,6 @@ interface NoteDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   clientId: string;
   noteId: string | null;
-  onUnlockRequired: () => void;
-  retryKey?: number;
 }
 
 export function NoteDetailDialog({
@@ -29,49 +25,25 @@ export function NoteDetailDialog({
   onOpenChange,
   clientId,
   noteId,
-  onUnlockRequired,
-  retryKey = 0,
 }: NoteDetailDialogProps) {
   const [note, setNote] = React.useState<NoteDetail | null>(null);
-  const [plaintext, setPlaintext] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open || !clientId || !noteId) return;
-    const kek = getKEK();
-    if (!kek) {
-      onUnlockRequired();
-      return;
-    }
 
     let cancelled = false;
     setLoading(true);
     setError(null);
-    setPlaintext(null);
     setNote(null);
 
     fetchNote(clientId, noteId)
       .then((n) => {
-        if (cancelled) return;
-        setNote(n);
-        return decryptNoteContent(
-          {
-            encryptedContent: n.encryptedContent,
-            encryptedDek: n.encryptedDek,
-            contentNonce: n.contentNonce,
-            contentAuthTag: n.contentAuthTag,
-            dekNonce: n.dekNonce,
-            dekAuthTag: n.dekAuthTag,
-          },
-          kek
-        );
-      })
-      .then((text) => {
-        if (!cancelled) setPlaintext(text ?? null);
+        if (!cancelled) setNote(n);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Çözme hatası");
+        if (!cancelled) setError(err instanceof Error ? err.message : "Yükleme hatası");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -79,9 +51,8 @@ export function NoteDetailDialog({
 
     return () => {
       cancelled = true;
-      setPlaintext(null);
     };
-  }, [open, clientId, noteId, onUnlockRequired, retryKey]);
+  }, [open, clientId, noteId]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -122,9 +93,9 @@ export function NoteDetailDialog({
           {error && (
             <p className="text-destructive py-4 text-sm">{error}</p>
           )}
-          {plaintext != null && !loading && (
+          {note && !loading && (
             <pre className="whitespace-pre-wrap rounded-md border p-4 text-sm">
-              {plaintext}
+              {note.content}
             </pre>
           )}
         </div>

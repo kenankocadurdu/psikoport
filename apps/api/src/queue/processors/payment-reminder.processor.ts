@@ -4,6 +4,7 @@ import { Job, Queue } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationService } from '../../modules/common/services/notification.service';
 import { runWithTenantContext } from '../../modules/common/context';
+import { EncryptionService } from '../../modules/common/services/encryption.service';
 
 interface SendReminderJobData {
   paymentId: string;
@@ -23,8 +24,23 @@ export class PaymentReminderProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly notification: NotificationService,
     @InjectQueue('payment-reminder-run') private readonly selfQueue: Queue,
+    private readonly encryption: EncryptionService,
   ) {
     super();
+  }
+
+  private async dec(tenantId: string, value: string | null | undefined): Promise<string | null> {
+    if (!value) return null;
+    try {
+      const buf = Buffer.from(value, 'base64');
+      if (buf.length < 29) return value;
+      const nonce = buf.subarray(0, 12);
+      const authTag = buf.subarray(12, 28);
+      const ciphertext = buf.subarray(28);
+      return await this.encryption.decrypt(tenantId, ciphertext, nonce, authTag);
+    } catch {
+      return value;
+    }
   }
 
   async process(job: Job): Promise<void> {
@@ -71,14 +87,15 @@ export class PaymentReminderProcessor extends WorkerHost {
           });
 
           for (const p of payments) {
-            if (!p.client.phone) continue;
+            const phone = await this.dec(tenant.id, p.client.phone);
+            if (!phone) continue;
 
             await this.selfQueue.add(
               'send-reminder',
               {
                 paymentId: p.id,
                 tenantId: tenant.id,
-                phone: p.client.phone,
+                phone,
                 amount: Number(p.amount),
                 sessionDateStr: p.sessionDate.toLocaleDateString('tr-TR'),
               } satisfies SendReminderJobData,

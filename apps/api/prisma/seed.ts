@@ -17,8 +17,8 @@ import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
 
-const TESTS_DIR = path.resolve(__dirname, '../../../packages/form-schemas/tests');
-const INTAKE_DIR = path.resolve(__dirname, '../../../packages/form-schemas/intake');
+const TESTS_DIR = path.resolve(__dirname, '../../../shared/packages/form-schemas/tests');
+const INTAKE_DIR = path.resolve(__dirname, '../../../shared/packages/form-schemas/intake');
 
 const PSYCHOMETRIC_TESTS = [
   'phq9', 'gad7', 'dass21', 'who5', 'pss10', 'pcl5',

@@ -6,10 +6,6 @@ import type { UpdateNoteMetaDto } from './dto/update-note-meta.dto';
 import type { NoteQueryDto } from './dto/note-query.dto';
 import type { PaginatedResponse } from '../../legal/audit-log.service';
 
-function base64ToBuffer(base64: string): Buffer {
-  return Buffer.from(base64, 'base64');
-}
-
 @Injectable()
 export class NotesService {
   constructor(
@@ -29,19 +25,9 @@ export class NotesService {
       throw new NotFoundException('Danışan bulunamadı');
     }
 
-    // Server-side encryption: frontend now sends plaintext in encryptedContent field.
-    // The field carries raw UTF-8 or base64-encoded content; we encrypt it here.
-    const plaintext = (() => {
-      try {
-        return base64ToBuffer(dto.encryptedContent).toString('utf8');
-      } catch {
-        return dto.encryptedContent;
-      }
-    })();
-
     const { ciphertext, nonce, authTag } = await this.encryptionService.encrypt(
       tenantId,
-      plaintext,
+      dto.content,
     );
 
     const note = await this.prisma.consultationNote.create({
@@ -58,7 +44,7 @@ export class NotesService {
         encryptedContent: ciphertext,
         contentNonce: nonce,
         contentAuthTag: authTag,
-        // DEK envelope unused for server-side encryption; empty sentinel marks new format
+        // DEK envelope unused — empty sentinel
         encryptedDek: Buffer.alloc(0),
         dekNonce: Buffer.alloc(0),
         dekAuthTag: Buffer.alloc(0),
@@ -130,7 +116,7 @@ export class NotesService {
     ]);
 
     return {
-      data: data.map((row: { id: string; sessionDate: Date; sessionNumber: number | null; sessionType: string | null; tags: string[]; symptomCategories: string[]; moodRating: number | null; durationMinutes: number | null; createdAt: Date }) => ({
+      data: data.map((row) => ({
         id: row.id,
         sessionDate: row.sessionDate,
         sessionNumber: row.sessionNumber,
@@ -163,15 +149,7 @@ export class NotesService {
     symptomCategories: string[];
     moodRating: number | null;
     durationMinutes: number | null;
-    // Server-side encrypted notes return plaintext content
-    content?: string;
-    // Legacy CSE notes return the raw envelope for client-side decryption
-    encryptedContent?: string;
-    encryptedDek?: string;
-    contentNonce?: string;
-    contentAuthTag?: string;
-    dekNonce?: string;
-    dekAuthTag?: string;
+    content: string;
     createdAt: Date;
   }> {
     const note = await this.prisma.consultationNote.findFirst({
@@ -182,7 +160,14 @@ export class NotesService {
       throw new NotFoundException('Not bulunamadı');
     }
 
-    const base = {
+    const content = await this.encryptionService.decrypt(
+      tenantId,
+      note.encryptedContent,
+      note.contentNonce,
+      note.contentAuthTag,
+    );
+
+    return {
       id: note.id,
       sessionDate: note.sessionDate,
       sessionNumber: note.sessionNumber,
@@ -191,29 +176,8 @@ export class NotesService {
       symptomCategories: note.symptomCategories,
       moodRating: note.moodRating,
       durationMinutes: note.durationMinutes,
+      content,
       createdAt: note.createdAt,
-    };
-
-    // Server-side encrypted: encryptedDek sentinel is empty buffer
-    if (note.encryptedDek.length === 0) {
-      const content = await this.encryptionService.decrypt(
-        tenantId,
-        note.encryptedContent,
-        note.contentNonce,
-        note.contentAuthTag,
-      );
-      return { ...base, content };
-    }
-
-    // Legacy CSE note: return raw envelope for client-side decryption
-    return {
-      ...base,
-      encryptedContent: note.encryptedContent.toString('base64'),
-      encryptedDek: note.encryptedDek.toString('base64'),
-      contentNonce: note.contentNonce.toString('base64'),
-      contentAuthTag: note.contentAuthTag.toString('base64'),
-      dekNonce: note.dekNonce.toString('base64'),
-      dekAuthTag: note.dekAuthTag.toString('base64'),
     };
   }
 

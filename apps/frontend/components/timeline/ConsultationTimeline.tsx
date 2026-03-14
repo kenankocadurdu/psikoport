@@ -9,8 +9,6 @@ import { FileText, ClipboardList, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { NoteDetailDialog } from "@/components/notes/NoteDetailDialog";
-import { KEKUnlockDialog } from "@/components/notes/KEKUnlockDialog";
-import { getKEK } from "@/lib/crypto/key-store";
 
 interface ConsultationTimelineProps {
   clientId: string;
@@ -72,8 +70,6 @@ function EntryMeta({ entry }: { entry: TimelineEntry }) {
 
 export function ConsultationTimeline({ clientId }: ConsultationTimelineProps) {
   const [detailNoteId, setDetailNoteId] = React.useState<string | null>(null);
-  const [unlockOpen, setUnlockOpen] = React.useState(false);
-  const [unlockRetryKey, setUnlockRetryKey] = React.useState(0);
 
   const {
     data,
@@ -97,15 +93,6 @@ export function ConsultationTimeline({ clientId }: ConsultationTimelineProps) {
     () => data?.pages.flatMap((p) => p.data) ?? [],
     [data]
   );
-
-  const handleNoteClick = (noteId: string) => {
-    setDetailNoteId(noteId);
-    if (!getKEK()) setUnlockOpen(true);
-  };
-
-  const handleUnlockSuccess = () => {
-    setUnlockRetryKey((k) => k + 1);
-  };
 
   if (isLoading) {
     return (
@@ -136,7 +123,7 @@ export function ConsultationTimeline({ clientId }: ConsultationTimelineProps) {
               <div className="min-w-0 flex-1">
                 <button
                   type="button"
-                  onClick={() => entry.type === "note" && handleNoteClick(entry.id)}
+                  onClick={() => entry.type === "note" && setDetailNoteId(entry.id)}
                   className={`w-full text-left ${entry.type === "note" ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
                 >
                   <div className="flex items-baseline gap-2">
@@ -171,14 +158,6 @@ export function ConsultationTimeline({ clientId }: ConsultationTimelineProps) {
         onOpenChange={(open) => !open && setDetailNoteId(null)}
         clientId={clientId}
         noteId={detailNoteId}
-        onUnlockRequired={() => setUnlockOpen(true)}
-        retryKey={unlockRetryKey}
-      />
-
-      <KEKUnlockDialog
-        open={unlockOpen}
-        onOpenChange={setUnlockOpen}
-        onSuccess={handleUnlockSuccess}
       />
     </div>
   );
