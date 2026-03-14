@@ -162,6 +162,7 @@ services:
       S3_REGION: ${S3_REGION:-us-east-1}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_SERVICE_NAME: psikoport-api
+      SEED_DEMO: ${SEED_DEMO:-false}
     depends_on:
       postgres:
         condition: service_healthy

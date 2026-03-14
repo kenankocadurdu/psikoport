@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "docker:fresh": "docker compose -f infra/docker-compose.yml --env-file .env down -v && docker compose -f infra/docker-compose.yml --env-file .env build --no-cache && docker compose -f infra/docker-compose.yml --env-file .env up",
+    "docker:fresh-demo": "SEED_DEMO=true docker compose -f infra/docker-compose.yml --env-file .env down -v && SEED_DEMO=true docker compose -f infra/docker-compose.yml --env-file .env build --no-cache && SEED_DEMO=true docker compose -f infra/docker-compose.yml --env-file .env up",
     "docker:build": "docker compose -f infra/docker-compose.yml --env-file .env down && docker compose -f infra/docker-compose.yml --env-file .env build --no-cache && docker compose -f infra/docker-compose.yml --env-file .env up",
     "docker:up": "docker compose -f infra/docker-compose.yml --env-file .env up",
     "docker:down": "docker compose -f infra/docker-compose.yml --env-file .env down -v",

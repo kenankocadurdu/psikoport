@@ -36,4 +36,4 @@ COPY --from=builder /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/shared/packages ./shared/packages
 WORKDIR /app/apps/api
 EXPOSE 3001
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema.prisma && pnpm exec prisma db seed && node dist/main.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema.prisma && pnpm exec prisma db seed && if [ \"$SEED_DEMO\" = \"true\" ]; then node_modules/.bin/ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed-demo.ts; fi && node dist/main.js"]
