@@ -207,3 +207,88 @@ describe('ConsentService – 9.1 grantConsent()', () => {
     expect(result).toEqual({ id: CONSENT_ID });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9.2 revokeConsent()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('ConsentService – 9.2 revokeConsent()', () => {
+  let service: ConsentService;
+  let prisma: ReturnType<typeof makePrisma>;
+
+  const NOW = new Date('2025-10-01T12:00:00.000Z');
+  const EXISTING_CONSENT = { id: CONSENT_ID, tenantId: TENANT_ID, isGranted: true, revokedAt: null };
+
+  beforeEach(async () => {
+    prisma = makePrisma();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ConsentService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+
+    service = module.get<ConsentService>(ConsentService);
+
+    jest.useFakeTimers();
+    jest.setSystemTime(NOW);
+
+    prisma.consent.findFirst.mockResolvedValue(EXISTING_CONSENT);
+    prisma.consent.update.mockResolvedValue({ ...EXISTING_CONSENT, isGranted: false, revokedAt: NOW });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  // ── Lookup ────────────────────────────────────────────────────────────────
+
+  it('queries consent with consentId and tenantId', async () => {
+    await service.revokeConsent(CONSENT_ID, TENANT_ID);
+    expect(prisma.consent.findFirst).toHaveBeenCalledWith({
+      where: { id: CONSENT_ID, tenantId: TENANT_ID },
+    });
+  });
+
+  it('throws NotFoundException when consent record not found', async () => {
+    prisma.consent.findFirst.mockResolvedValue(null);
+    await expect(service.revokeConsent(CONSENT_ID, TENANT_ID)).rejects.toThrow(NotFoundException);
+  });
+
+  it('does not call update when consent not found', async () => {
+    prisma.consent.findFirst.mockResolvedValue(null);
+    await expect(service.revokeConsent(CONSENT_ID, TENANT_ID)).rejects.toThrow();
+    expect(prisma.consent.update).not.toHaveBeenCalled();
+  });
+
+  // ── Update ────────────────────────────────────────────────────────────────
+
+  it('updates consent where id matches consentId', async () => {
+    await service.revokeConsent(CONSENT_ID, TENANT_ID);
+    expect(prisma.consent.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: CONSENT_ID } }),
+    );
+  });
+
+  it('sets isGranted to false', async () => {
+    await service.revokeConsent(CONSENT_ID, TENANT_ID);
+    expect(prisma.consent.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ isGranted: false }) }),
+    );
+  });
+
+  it('sets revokedAt to current time', async () => {
+    await service.revokeConsent(CONSENT_ID, TENANT_ID);
+    expect(prisma.consent.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ revokedAt: NOW }) }),
+    );
+  });
+
+  // ── Return value ──────────────────────────────────────────────────────────
+
+  it('returns void (undefined)', async () => {
+    const result = await service.revokeConsent(CONSENT_ID, TENANT_ID);
+    expect(result).toBeUndefined();
+  });
+});
