@@ -10,6 +10,8 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME:-psikoport}
+      AWS_ACCESS_KEY_ID: ${MINIO_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_PASSWORD}
     ports:
       - "${DB_PORT:-5432}:5432"
     command: >
@@ -21,6 +23,10 @@ services:
     volumes:
       - postgres:/var/lib/postgresql/data
       - wal_archive:/var/lib/postgresql/wal_archive
+      - ./postgres/walg-env.sh:/etc/walg-env.sh:ro
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -44,13 +50,13 @@ services:
       AWS_SECRET_ACCESS_KEY: ${MINIO_PASSWORD}
     volumes:
       - postgres:/var/lib/postgresql/data
-      - ./postgres/backup-cron.sh:/usr/local/bin/backup-cron.sh:ro
+      - ./postgres/backup-cron.sh:/usr/local/bin/backup-cron.sh
       - ./postgres/walg-env.sh:/etc/walg-env.sh:ro
     entrypoint: >
       /bin/sh -c "
         chmod +x /usr/local/bin/backup-cron.sh &&
         echo '0 2 * * * /usr/local/bin/backup-cron.sh >> /var/log/backup-cron.log 2>&1' | crontab - &&
-        crond -f -l 2
+        cron -f
       "
     depends_on:
       postgres:
@@ -58,7 +64,10 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: psikoport-redis
+    build:
+      context: .
+      dockerfile: Dockerfile.redis
     container_name: psikoport-redis
     ports:
       - "${REDIS_PORT:-6379}:6379"
@@ -71,7 +80,10 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: psikoport-minio
+    build:
+      context: .
+      dockerfile: Dockerfile.minio
     container_name: psikoport-minio
     environment:
       MINIO_ROOT_USER: ${MINIO_USER}
@@ -89,7 +101,10 @@ services:
       retries: 10
 
   minio-init:
-    image: minio/mc:latest
+    image: psikoport-mc
+    build:
+      context: .
+      dockerfile: Dockerfile.mc
     container_name: psikoport-minio-init
     depends_on:
       minio:
@@ -103,14 +118,18 @@ services:
         mc alias set local http://minio:9000 $$MINIO_USER $$MINIO_PASSWORD &&
         mc mb local/$$MINIO_BUCKET --ignore-existing &&
         mc anonymous set none local/$$MINIO_BUCKET &&
-        printf '{\"CORSRules\":[{\"AllowedHeaders\":[\"*\"],\"AllowedMethods\":[\"PUT\",\"GET\",\"HEAD\"],\"AllowedOrigins\":[\"*\"],\"MaxAgeSeconds\":3600}]}' > /tmp/cors.json &&
-        mc cors set local/$$MINIO_BUCKET /tmp/cors.json
+        printf '<?xml version="1.0" encoding="UTF-8"?><CORSConfiguration><CORSRule><AllowedOrigin>*</AllowedOrigin><AllowedMethod>PUT</AllowedMethod><AllowedMethod>GET</AllowedMethod><AllowedMethod>HEAD</AllowedMethod><AllowedHeader>*</AllowedHeader><MaxAgeSeconds>3600</MaxAgeSeconds></CORSRule></CORSConfiguration>' > /tmp/cors.xml &&
+        mc cors set local/$$MINIO_BUCKET /tmp/cors.xml || true &&
+        mc mb local/psikoport-backups --ignore-existing &&
+        mc anonymous set none local/psikoport-backups
       "
     restart: "no"
-    profiles: [init]
 
   jaeger:
-    image: jaegertracing/all-in-one:1.54
+    image: psikoport-jaeger
+    build:
+      context: .
+      dockerfile: Dockerfile.jaeger
     container_name: psikoport-jaeger
     environment:
       COLLECTOR_OTLP_ENABLED: "true"

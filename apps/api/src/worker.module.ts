@@ -5,6 +5,7 @@ import Redis from 'ioredis';
 import { PrismaModule } from './database/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { NotificationModule } from './modules/common/services/notification.module';
+import { LegalModule } from './modules/legal/legal.module';
 
 /**
  * Minimal NestJS module for the BullMQ worker process.
@@ -13,7 +14,7 @@ import { NotificationModule } from './modules/common/services/notification.modul
  */
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '../../.env' }),
     PrismaModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
@@ -33,6 +34,7 @@ import { NotificationModule } from './modules/common/services/notification.modul
     }),
     QueueModule,
     NotificationModule,
+    LegalModule,
   ],
 })
 export class WorkerModule {}

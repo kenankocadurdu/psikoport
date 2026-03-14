@@ -7,6 +7,7 @@ DROP TRIGGER IF EXISTS audit_log_worm_trigger ON "AuditLog";
 DROP TRIGGER IF EXISTS prevent_audit_modification_trigger ON "AuditLog";
 
 ALTER TABLE "AuditLog" RENAME TO "AuditLog_old";
+ALTER TABLE "AuditLog_old" RENAME CONSTRAINT "AuditLog_pkey" TO "AuditLog_old_pkey";
 
 -- Step 2: Create new partitioned table
 CREATE TABLE "AuditLog" (
@@ -48,18 +49,18 @@ CREATE TABLE "audit_logs_2026_09" PARTITION OF "AuditLog"
 
 CREATE TABLE "audit_logs_default" PARTITION OF "AuditLog" DEFAULT;
 
--- Step 4: Indexes on partitioned table
-CREATE INDEX "AuditLog_tenantId_idx" ON "AuditLog" ("tenantId");
-CREATE INDEX "AuditLog_userId_idx"   ON "AuditLog" ("userId");
-CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog" ("createdAt");
-
--- Step 5: Migrate existing data
+-- Step 4: Migrate existing data
 INSERT INTO "AuditLog" ("tenantId", "userId", "action", "resourceType", "resourceId", "details", "ipAddress", "userAgent", "createdAt")
 SELECT "tenantId", "userId", "action", "resourceType", "resourceId", "details", "ipAddress", "userAgent", "createdAt"
 FROM "AuditLog_old";
 
--- Step 6: Drop old table
+-- Step 5: Drop old table (also drops its indexes, freeing the index names)
 DROP TABLE "AuditLog_old";
+
+-- Step 6: Indexes on partitioned table
+CREATE INDEX "AuditLog_tenantId_idx" ON "AuditLog" ("tenantId");
+CREATE INDEX "AuditLog_userId_idx"   ON "AuditLog" ("userId");
+CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog" ("createdAt");
 
 -- Step 7: Re-apply WORM trigger on the new partitioned table
 CREATE TRIGGER audit_log_worm_trigger

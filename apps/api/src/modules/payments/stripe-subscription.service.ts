@@ -4,10 +4,19 @@ import Stripe from 'stripe';
 
 @Injectable()
 export class StripeSubscriptionService {
-  private readonly stripe: Stripe;
+  private readonly stripeClient: Stripe | null;
   constructor(private readonly config: ConfigService) {
-    const secretKey = this.config.get<string>('STRIPE_SECRET_KEY') ?? '';
-    this.stripe = new Stripe(secretKey, { apiVersion: '2026-02-25.clover' });
+    const secretKey = this.config.get<string>('STRIPE_SECRET_KEY');
+    this.stripeClient = secretKey
+      ? new Stripe(secretKey, { apiVersion: '2026-02-25.clover' })
+      : null;
+  }
+
+  private get stripe(): Stripe {
+    if (!this.stripeClient) {
+      throw new Error('STRIPE_SECRET_KEY yapılandırılmamış');
+    }
+    return this.stripeClient;
   }
 
   async createSubscription(

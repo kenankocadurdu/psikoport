@@ -32,7 +32,7 @@ import { TenantContextMiddleware } from './modules/common/middlewares/tenant-con
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '../../.env' }),
     PrismaModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],

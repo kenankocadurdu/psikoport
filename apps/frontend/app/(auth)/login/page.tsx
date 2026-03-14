@@ -27,9 +27,9 @@ const features = [
 async function getAuthConfig(): Promise<{ useAuth0: boolean }> {
   try {
     const res = await fetch(`${API_URL}/auth/config`, { cache: "no-store" });
-    return res.ok ? res.json() : { useAuth0: true };
+    return res.ok ? res.json() : { useAuth0: false };
   } catch {
-    return { useAuth0: true };
+    return { useAuth0: false };
   }
 }
 

@@ -76,7 +76,7 @@ export default function GuidePage() {
             <li className="flex gap-2">
               <span className="font-semibold shrink-0">b)</span>
               Sisteme ilk girişte ekranınızda bir <strong>QR kodu</strong> göreceksiniz.
-              Uygulamayı açın, "+" veya "Hesap ekle" seçeneğine dokunun ve QR kodu okutun.
+              Uygulamayı açın, &quot;+&quot; veya &quot;Hesap ekle&quot; seçeneğine dokunun ve QR kodu okutun.
             </li>
             <li className="flex gap-2">
               <span className="font-semibold shrink-0">c)</span>

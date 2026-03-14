@@ -3,12 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "docker:fresh": "docker compose -f infra/docker-compose.yml --env-file .env down -v && docker compose -f infra/docker-compose.yml --env-file .env build --no-cache && docker compose -f infra/docker-compose.yml --env-file .env up && docker compose -f infra/docker-compose.yml --env-file .env run --rm minio-init",
-    "docker:build": "docker compose -f infra/docker-compose.yml --env-file .env down && docker compose -f infra/docker-compose.yml --env-file .env build --no-cache && docker compose -f infra/docker-compose.yml --env-file .env up && docker compose -f infra/docker-compose.yml --env-file .env run --rm minio-init",
+    "docker:fresh": "docker compose -f infra/docker-compose.yml --env-file .env down -v && docker compose -f infra/docker-compose.yml --env-file .env build --no-cache && docker compose -f infra/docker-compose.yml --env-file .env up",
+    "docker:build": "docker compose -f infra/docker-compose.yml --env-file .env down && docker compose -f infra/docker-compose.yml --env-file .env build --no-cache && docker compose -f infra/docker-compose.yml --env-file .env up",
     "docker:up": "docker compose -f infra/docker-compose.yml --env-file .env up",
     "docker:down": "docker compose -f infra/docker-compose.yml --env-file .env down -v",
-    "docker:backend": "docker compose -f infra/docker-compose.yml --env-file .env build --no-cache api && docker compose -f infra/docker-compose.yml --env-file .env up -d postgres redis minio api && docker compose -f infra/docker-compose.yml --env-file .env run --rm minio-init",
-    "docker:backend_up": "docker compose -f infra/docker-compose.yml --env-file .env up -d postgres redis minio api && docker compose -f infra/docker-compose.yml --env-file .env run --rm minio-init",
+    "docker:backend": "docker compose -f infra/docker-compose.yml --env-file .env build --no-cache api && docker compose -f infra/docker-compose.yml --env-file .env up -d postgres redis minio minio-init api",
+    "docker:backend_up": "docker compose -f infra/docker-compose.yml --env-file .env up -d postgres redis minio minio-init api",
 
     "dev": "turbo run dev",
     "dev:frontend": "turbo run dev --filter=frontend",

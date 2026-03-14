@@ -24,12 +24,15 @@ import { VideoIntegrationsController } from './video/video-integrations.controll
 import { VideoIntegrationsService } from './video/video-integrations.service';
 import { FinanceModule } from '../finance/finance.module';
 import { SubscriptionModule } from '../subscriptions/subscription.module';
+import { PaymentsModule } from '../payments/payments.module';
+import { QuotaGuard } from '../common/guards/quota.guard';
 
 @Module({
   imports: [
     PrismaModule,
     FinanceModule,
     SubscriptionModule,
+    PaymentsModule,
     ConfigModule,
     QueueModule,
     BullModule.registerQueue({ name: 'appointment-notification' }),
@@ -41,6 +44,7 @@ import { SubscriptionModule } from '../subscriptions/subscription.module';
     VideoIntegrationsController,
   ],
   providers: [
+    QuotaGuard,
     AppointmentsService,
     AvailabilityService,
     TokenEncryptionService,

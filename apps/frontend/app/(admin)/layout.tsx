@@ -107,6 +107,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <p className="text-sm font-medium truncate">{me.fullName}</p>
             <p className="text-xs text-muted-foreground truncate">{me.email}</p>
           </div>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
             href="/api/auth/do-logout"
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"

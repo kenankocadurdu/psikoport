@@ -6,11 +6,13 @@ import { TimelineModule } from './timeline/timeline.module';
 import { FilesModule } from './files/files.module';
 import { ExportModule } from './export/export.module';
 import { PrismaModule } from '../../database/prisma.module';
+import { SubscriptionModule } from '../subscriptions/subscription.module';
+import { QuotaGuard } from '../common/guards/quota.guard';
 
 @Module({
-  imports: [PrismaModule, NotesModule, TimelineModule, FilesModule, ExportModule],
+  imports: [PrismaModule, NotesModule, TimelineModule, FilesModule, ExportModule, SubscriptionModule],
   controllers: [ClientsController],
-  providers: [ClientsService],
+  providers: [ClientsService, QuotaGuard],
   exports: [ClientsService],
 })
 export class ClientsModule {}

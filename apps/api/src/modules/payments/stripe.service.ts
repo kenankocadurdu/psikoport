@@ -4,13 +4,22 @@ import Stripe from 'stripe';
 
 @Injectable()
 export class StripeService {
-  private readonly stripe: Stripe;
+  private readonly stripe: Stripe | null;
   private readonly webhookSecret: string;
 
   constructor(private readonly config: ConfigService) {
-    const secretKey = this.config.get<string>('STRIPE_SECRET_KEY') ?? '';
-    this.stripe = new Stripe(secretKey, { apiVersion: '2026-02-25.clover' });
+    const secretKey = this.config.get<string>('STRIPE_SECRET_KEY');
+    this.stripe = secretKey
+      ? new Stripe(secretKey, { apiVersion: '2026-02-25.clover' })
+      : null;
     this.webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET') ?? '';
+  }
+
+  private get client(): Stripe {
+    if (!this.stripe) {
+      throw new InternalServerErrorException('STRIPE_SECRET_KEY yapılandırılmamış');
+    }
+    return this.stripe;
   }
 
   async createPaymentIntent(
@@ -18,7 +27,7 @@ export class StripeService {
     currency: string,
     metadata: Record<string, string>,
   ): Promise<Stripe.PaymentIntent> {
-    return this.stripe.paymentIntents.create({
+    return this.client.paymentIntents.create({
       amount,
       currency,
       metadata,
@@ -27,11 +36,11 @@ export class StripeService {
   }
 
   async capturePayment(paymentIntentId: string): Promise<Stripe.PaymentIntent> {
-    return this.stripe.paymentIntents.capture(paymentIntentId);
+    return this.client.paymentIntents.capture(paymentIntentId);
   }
 
   async voidPayment(paymentIntentId: string): Promise<Stripe.PaymentIntent> {
-    return this.stripe.paymentIntents.cancel(paymentIntentId);
+    return this.client.paymentIntents.cancel(paymentIntentId);
   }
 
   async createCheckoutSession(
@@ -41,7 +50,7 @@ export class StripeService {
     successUrl: string,
     cancelUrl: string,
   ): Promise<Stripe.Checkout.Session> {
-    return this.stripe.checkout.sessions.create({
+    return this.client.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {
@@ -64,6 +73,6 @@ export class StripeService {
     if (!this.webhookSecret) {
       throw new InternalServerErrorException('STRIPE_WEBHOOK_SECRET yapılandırılmamış');
     }
-    return this.stripe.webhooks.constructEvent(body, signature, this.webhookSecret);
+    return this.client.webhooks.constructEvent(body, signature, this.webhookSecret);
   }
 }

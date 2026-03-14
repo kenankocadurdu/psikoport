@@ -426,6 +426,9 @@ importers:
       '@eslint/js':
         specifier: ^9.0.0
         version: 9.39.3
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.13
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
