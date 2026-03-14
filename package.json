@@ -19,7 +19,10 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "db:migrate": "pnpm --filter api exec prisma migrate dev",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "test:unit": "pnpm --filter api test:unit",
+    "test:unit:watch": "pnpm --filter api test:unit:watch",
+    "test:cov": "pnpm --filter api test:cov"
   },
   "devDependencies": {
     "turbo": "^2.8.11",
