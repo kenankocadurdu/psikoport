@@ -1,9 +1,14 @@
+import { createHash } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { ConsentType } from 'prisma-client';
 
 import { ConsentService } from '../consent.service';
 import { PrismaService } from '../../../database/prisma.service';
+
+function sha256(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex');
+}
 
 // ─── Mock factory ─────────────────────────────────────────────────────────────
 
@@ -527,5 +532,143 @@ describe('ConsentService – 9.3 getPendingConsentsForUser()', () => {
     const result = await service.getPendingConsentsForUser(TENANT_ID, USER_ID_LOCAL);
     const kvkk = result.find((r) => r.consentType === TYPE_KVKK);
     expect(kvkk?.diffFromPrevious).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9.4 createConsentTextVersion()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('ConsentService – 9.4 createConsentTextVersion()', () => {
+  let service: ConsentService;
+  let prisma: ReturnType<typeof makePrisma>;
+
+  const TYPE = 'PLATFORM_TOS' as ConsentType;
+  const EFFECTIVE_FROM = new Date('2025-06-01T00:00:00.000Z');
+  const BODY_HTML_V1 = '<p>İlk sürüm metni.</p>';
+  const BODY_HTML_V2 = '<p>Güncellenmiş metin.</p>';
+  const TEXT_ID = 'ctext-new-1';
+
+  beforeEach(async () => {
+    prisma = makePrisma();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ConsentService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+
+    service = module.get<ConsentService>(ConsentService);
+
+    // Default: no previous version
+    prisma.consentText.findFirst.mockResolvedValue(null);
+    prisma.consentText.create.mockResolvedValue({ id: TEXT_ID });
+  });
+
+  // ── findFirst query ───────────────────────────────────────────────────────
+
+  it('queries previous version with consentType filter ordered by version desc', async () => {
+    await service.createConsentTextVersion(TYPE, 1, 'Başlık', BODY_HTML_V1, EFFECTIVE_FROM);
+    expect(prisma.consentText.findFirst).toHaveBeenCalledWith({
+      where: { consentType: TYPE },
+      orderBy: { version: 'desc' },
+    });
+  });
+
+  // ── bodyHash ──────────────────────────────────────────────────────────────
+
+  it('passes sha256 of bodyHtml as bodyHash in create data', async () => {
+    await service.createConsentTextVersion(TYPE, 1, 'Başlık', BODY_HTML_V1, EFFECTIVE_FROM);
+    expect(prisma.consentText.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ bodyHash: sha256(BODY_HTML_V1) }),
+      }),
+    );
+  });
+
+  // ── diffFromPrevious: null cases ──────────────────────────────────────────
+
+  it('sets diffFromPrevious to null when no previous version exists', async () => {
+    prisma.consentText.findFirst.mockResolvedValue(null);
+    await service.createConsentTextVersion(TYPE, 1, 'Başlık', BODY_HTML_V1, EFFECTIVE_FROM);
+    expect(prisma.consentText.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ diffFromPrevious: null }),
+      }),
+    );
+  });
+
+  it('sets diffFromPrevious to null when previous version is not consecutive (version gap)', async () => {
+    // Creating v3, but prev is v1 (not v2 = 3-1)
+    prisma.consentText.findFirst.mockResolvedValue({
+      id: 'prev', consentType: TYPE, version: 1, bodyHtml: BODY_HTML_V1,
+    });
+    await service.createConsentTextVersion(TYPE, 3, 'Başlık', BODY_HTML_V2, EFFECTIVE_FROM);
+    expect(prisma.consentText.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ diffFromPrevious: null }),
+      }),
+    );
+  });
+
+  // ── diffFromPrevious: computed diff cases ─────────────────────────────────
+
+  it('computes diff when previous version is consecutive (version - 1)', async () => {
+    prisma.consentText.findFirst.mockResolvedValue({
+      id: 'prev', consentType: TYPE, version: 1, bodyHtml: BODY_HTML_V1,
+    });
+    await service.createConsentTextVersion(TYPE, 2, 'Başlık', BODY_HTML_V2, EFFECTIVE_FROM);
+    const createData = prisma.consentText.create.mock.calls[0][0].data as Record<string, unknown>;
+    // diffFromPrevious should be a non-null string (computed diff)
+    expect(typeof createData.diffFromPrevious).toBe('string');
+    expect(createData.diffFromPrevious).not.toBeNull();
+  });
+
+  it('diff contains removed line marker when content changed', async () => {
+    prisma.consentText.findFirst.mockResolvedValue({
+      id: 'prev', consentType: TYPE, version: 1, bodyHtml: BODY_HTML_V1,
+    });
+    await service.createConsentTextVersion(TYPE, 2, 'Başlık', BODY_HTML_V2, EFFECTIVE_FROM);
+    const createData = prisma.consentText.create.mock.calls[0][0].data as Record<string, unknown>;
+    // Real diff lib: changed lines appear as [-] removed / [+] added
+    expect(createData.diffFromPrevious as string).toMatch(/\[-\]/);
+    expect(createData.diffFromPrevious as string).toMatch(/\[\+\]/);
+  });
+
+  it('diff is "(değişiklik yok)" when bodyHtml is identical to previous', async () => {
+    prisma.consentText.findFirst.mockResolvedValue({
+      id: 'prev', consentType: TYPE, version: 1, bodyHtml: BODY_HTML_V1,
+    });
+    // Creating v2 with identical HTML
+    await service.createConsentTextVersion(TYPE, 2, 'Başlık', BODY_HTML_V1, EFFECTIVE_FROM);
+    const createData = prisma.consentText.create.mock.calls[0][0].data as Record<string, unknown>;
+    expect(createData.diffFromPrevious).toBe('(değişiklik yok)');
+  });
+
+  // ── create data fields ────────────────────────────────────────────────────
+
+  it('passes all fields to consentText.create', async () => {
+    await service.createConsentTextVersion(TYPE, 1, 'TOS Başlık', BODY_HTML_V1, EFFECTIVE_FROM);
+    expect(prisma.consentText.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          consentType: TYPE,
+          version: 1,
+          title: 'TOS Başlık',
+          bodyHtml: BODY_HTML_V1,
+          effectiveFrom: EFFECTIVE_FROM,
+        }),
+      }),
+    );
+  });
+
+  // ── Return value ──────────────────────────────────────────────────────────
+
+  it('returns { id } of the created consent text', async () => {
+    const result = await service.createConsentTextVersion(
+      TYPE, 1, 'Başlık', BODY_HTML_V1, EFFECTIVE_FROM,
+    );
+    expect(result).toEqual({ id: TEXT_ID });
   });
 });
