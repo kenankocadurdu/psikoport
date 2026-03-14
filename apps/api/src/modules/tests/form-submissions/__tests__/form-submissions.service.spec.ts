@@ -3,6 +3,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 
 import { FormSubmissionsService } from '../form-submissions.service';
 import { PrismaService } from '../../../../database/prisma.service';
+import type { CreateFormSubmissionDto } from '../dto/create-form-submission.dto';
 
 // ─── Mock factories ───────────────────────────────────────────────────────────
 
@@ -255,5 +256,244 @@ describe('FormSubmissionsService – 7.1 checkCrisisTrigger()', () => {
       };
       expect(updateCall.data).not.toHaveProperty('riskFlags');
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7.2 createAndComplete()
+// Private method — tested through create() with completionStatus: 'COMPLETE'
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('FormSubmissionsService – 7.2 createAndComplete()', () => {
+  let service: FormSubmissionsService;
+  let prisma: ReturnType<typeof makePrisma>;
+  let crisisQueue: { add: jest.Mock };
+  let scoringQueue: { add: jest.Mock };
+
+  const CLIENT_ID = 'client-1';
+  const PSYCHOLOGIST_ID = 'psychologist-1';
+  const NOW = new Date('2025-06-01T10:00:00.000Z');
+
+  const BASE_FORM_DEF = {
+    id: FORM_DEF_ID,
+    code: 'PHQ9',
+    version: 3,
+    scoringConfig: null as unknown,
+    schema: null as unknown,
+  };
+
+  const BASE_DTO: CreateFormSubmissionDto = {
+    clientId: CLIENT_ID,
+    formDefinitionId: FORM_DEF_ID,
+    responses: { q1: 'never' },
+    completionStatus: 'COMPLETE',
+  };
+
+  const CREATED_SUBMISSION = {
+    id: SUBMISSION_ID,
+    completionStatus: 'COMPLETE',
+    submittedAt: NOW,
+  };
+
+  beforeEach(async () => {
+    prisma = makePrisma();
+    crisisQueue = { add: jest.fn().mockResolvedValue(undefined) };
+    scoringQueue = { add: jest.fn().mockResolvedValue(undefined) };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        FormSubmissionsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: getQueueToken('scoring'), useValue: scoringQueue },
+        { provide: getQueueToken('crisis-alert'), useValue: crisisQueue },
+      ],
+    }).compile();
+
+    service = module.get<FormSubmissionsService>(FormSubmissionsService);
+
+    jest.useFakeTimers();
+    jest.setSystemTime(NOW);
+
+    // Default: client exists, formDef found, submission created
+    prisma.client.findFirst.mockResolvedValue({ id: CLIENT_ID, tenantId: TENANT_ID });
+    prisma.formDefinition.findFirst.mockResolvedValue(BASE_FORM_DEF);
+    prisma.formSubmission.create.mockResolvedValue(CREATED_SUBMISSION);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  async function runCreate(
+    dtoOverrides: Partial<CreateFormSubmissionDto> = {},
+    formDefOverrides: Partial<typeof BASE_FORM_DEF> = {},
+  ) {
+    prisma.formDefinition.findFirst.mockResolvedValue({
+      ...BASE_FORM_DEF,
+      ...formDefOverrides,
+    });
+    return service.create(
+      { ...BASE_DTO, ...dtoOverrides },
+      TENANT_ID,
+      PSYCHOLOGIST_ID,
+    );
+  }
+
+  // ── Submission creation fields ─────────────────────────────────────────────
+
+  it('creates submission with completionStatus COMPLETE', async () => {
+    await runCreate();
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ completionStatus: 'COMPLETE' }),
+      }),
+    );
+  });
+
+  it('sets submittedAt to current time', async () => {
+    await runCreate();
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ submittedAt: NOW }),
+      }),
+    );
+  });
+
+  it('sets formVersion from formDef.version', async () => {
+    await runCreate({}, { version: 7 });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ formVersion: 7 }),
+      }),
+    );
+  });
+
+  it('sets sessionId to null when not provided in DTO', async () => {
+    await runCreate({ sessionId: undefined });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ sessionId: null }),
+      }),
+    );
+  });
+
+  it('sets sessionId from DTO when provided', async () => {
+    await runCreate({ sessionId: 'session-42' });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ sessionId: 'session-42' }),
+      }),
+    );
+  });
+
+  it('returns the created submission', async () => {
+    const result = await runCreate();
+    expect(result).toBe(CREATED_SUBMISSION);
+  });
+
+  // ── riskFlags ─────────────────────────────────────────────────────────────
+
+  it('sets riskFlags to ["suicide_risk"] when crisis detected', async () => {
+    const schema = makeSchema([{ id: 'q1', crisisTrigger: { values: ['always'] } }]);
+    await runCreate({ responses: { q1: 'always' } }, { schema });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ riskFlags: ['suicide_risk'] }),
+      }),
+    );
+  });
+
+  it('sets riskFlags to [] when no crisis detected', async () => {
+    const schema = makeSchema([{ id: 'q1', crisisTrigger: { values: ['always'] } }]);
+    await runCreate({ responses: { q1: 'never' } }, { schema });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ riskFlags: [] }),
+      }),
+    );
+  });
+
+  // ── Snapshots ─────────────────────────────────────────────────────────────
+
+  it('sets scoringConfigSnapshot to formDef.scoringConfig when present', async () => {
+    const scoringConfig = { algorithm: 'phq', maxScore: 27 };
+    await runCreate({}, { scoringConfig });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ scoringConfigSnapshot: scoringConfig }),
+      }),
+    );
+  });
+
+  it('sets scoringConfigSnapshot to null when scoringConfig is null', async () => {
+    await runCreate({}, { scoringConfig: null });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ scoringConfigSnapshot: null }),
+      }),
+    );
+  });
+
+  it('sets schemaSnapshot to formDef.schema', async () => {
+    const schema = makeSchema([{ id: 'q1' }]);
+    await runCreate({}, { schema });
+    expect(prisma.formSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ schemaSnapshot: schema }),
+      }),
+    );
+  });
+
+  // ── Scoring queue ─────────────────────────────────────────────────────────
+
+  it('enqueues scoring job when scoringConfig is an object', async () => {
+    const scoringConfig = { algorithm: 'phq' };
+    await runCreate({}, { scoringConfig });
+    expect(scoringQueue.add).toHaveBeenCalledWith(
+      'score',
+      { submissionId: SUBMISSION_ID, formDefinitionId: FORM_DEF_ID },
+      { jobId: `scoring:${SUBMISSION_ID}` },
+    );
+  });
+
+  it('does not enqueue scoring job when scoringConfig is null', async () => {
+    await runCreate({}, { scoringConfig: null });
+    expect(scoringQueue.add).not.toHaveBeenCalled();
+  });
+
+  it('does not enqueue scoring job when scoringConfig is a string (not an object)', async () => {
+    await runCreate({}, { scoringConfig: 'legacy' });
+    expect(scoringQueue.add).not.toHaveBeenCalled();
+  });
+
+  // ── Crisis queue ──────────────────────────────────────────────────────────
+
+  it('enqueues crisis alert when crisis detected', async () => {
+    const schema = makeSchema([{ id: 'q1', crisisTrigger: { values: ['always'] } }]);
+    await runCreate({ responses: { q1: 'always' } }, { schema });
+    expect(crisisQueue.add).toHaveBeenCalledWith(
+      'alert',
+      {
+        submissionId: SUBMISSION_ID,
+        formDefinitionId: FORM_DEF_ID,
+        tenantId: TENANT_ID,
+        riskFlags: ['suicide_risk'],
+      },
+    );
+  });
+
+  it('does not enqueue crisis alert when no crisis detected', async () => {
+    await runCreate({ responses: { q1: 'never' } });
+    expect(crisisQueue.add).not.toHaveBeenCalled();
+  });
+
+  // ── Both queues ───────────────────────────────────────────────────────────
+
+  it('enqueues both scoring and crisis when scoringConfig set and crisis detected', async () => {
+    const schema = makeSchema([{ id: 'q1', crisisTrigger: { values: ['always'] } }]);
+    const scoringConfig = { algorithm: 'phq' };
+    await runCreate({ responses: { q1: 'always' } }, { schema, scoringConfig });
+    expect(scoringQueue.add).toHaveBeenCalledTimes(1);
+    expect(crisisQueue.add).toHaveBeenCalledTimes(1);
   });
 });
